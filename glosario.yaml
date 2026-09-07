@@ -1,0 +1,120 @@
+# =============================================================
+#  Glosario de la iglesia
+#
+#  Este archivo es lo que mas mueve la aguja en la calidad. Se usa
+#  en dos lugares:
+#
+#   1. Whisper lo recibe como "contexto inicial", lo que sesga el
+#      reconocimiento hacia estas palabras. Es lo que evita que
+#      "Efesios" salga como "efectos".
+#   2. Claude lo recibe en el prompt, para traducir con el termino
+#      que usa esta congregacion y no el generico del diccionario.
+#
+#  Conviene revisarlo despues de los primeros cultos: en la carpeta
+#  registros/ queda todo lo que se dijo y como se tradujo.
+# =============================================================
+
+# Nombres propios que se dicen seguido. Sin esto Whisper los destroza.
+# ESTOS SON DE EJEMPLO: reemplazalos por los de tu congregacion (el nombre
+# de la iglesia, los pastores, los lideres que se nombran seguido).
+nombres:
+  - Pastor Marcelo
+  - Iglesia Cristiana
+  # Nombres de Dios: Whisper los destroza sin esto ("Dejiova" por "Jehova").
+  - Jehova
+  - Jesucristo
+  - Cristo
+
+# Terminos que SIEMPRE se traducen de una manera determinada.
+# Formato:  termino en español: traduccion por idioma
+terminos:
+  ofrenda:
+    en: offering
+  diezmo:
+    en: tithe
+  alabanza:
+    en: worship
+  culto:
+    en: service
+  celula:
+    en: small group
+  discipulado:
+    en: discipleship
+  hermano:
+    en: brother
+  hermana:
+    en: sister
+  congregacion:
+    en: congregation
+  ancianos:
+    en: elders
+  arrepentimiento:
+    en: repentance
+  salvacion:
+    en: salvation
+  Espiritu Santo:
+    en: Holy Spirit
+  misericordia:
+    en: mercy
+  testimonio:
+    en: testimony
+  primicias:
+    en: firstfruits
+  rincon infantil:
+    en: children's corner
+
+# Vocabulario que se dice en los cultos y conviene que Whisper conozca.
+# No hace falta traduccion: es solo para el reconocimiento de voz.
+vocabulario:
+  - Genesis
+  - Exodo
+  - Salmos
+  - Proverbios
+  - Isaias
+  - Mateo
+  - Marcos
+  - Lucas
+  - Juan
+  - Hechos
+  - Romanos
+  - Corintios
+  - Galatas
+  - Efesios
+  - Filipenses
+  - Colosenses
+  - Hebreos
+  - Santiago
+  - Apocalipsis
+  - Jesucristo
+  - Espiritu Santo
+  - aleluya
+  - amen
+  - bendicion
+  - versiculo
+  - capitulo
+  # Agregados despues de escuchar un culto real: estas son las palabras que
+  # el reconocimiento erro. Cuando encuentres otras en registros/, sumalas aca.
+  - misericordia
+  - misericordioso
+  - jovenes
+  - rincon infantil
+  - congregacion
+  - testimonio
+  - intercesion
+  - ofrenda
+  - primicias
+  - santidad
+  - gracia
+  - fe
+  - oracion
+
+# Instrucciones libres para el traductor. Aca va todo lo que no entra
+# en una lista de terminos.
+notas: |
+  - Registro hablado y calido, como un predicador dirigiendose a su
+    congregacion. No academico, no formal de escritura.
+  - Las citas biblicas se traducen con la redaccion habitual de las
+    traducciones al ingles mas usadas (NIV / ESV), no palabra por palabra
+    desde el español.
+  - "Hermanos" dicho a la congregacion entera se traduce "brothers and
+    sisters", no "brothers".

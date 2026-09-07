@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+voces/*.onnx
+voces/*.onnx.json
+registros/
+simulacro/
+.env
+pruebas/

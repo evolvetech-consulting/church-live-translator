@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Traducción en vivo</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:#111318;color:#e8eaed;
+       font:16px/1.65 ui-sans-serif,system-ui,-apple-system,sans-serif}
+  header{position:sticky;top:0;background:#181b22;border-bottom:1px solid #2a2f3a;
+         padding:11px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  header b{font-size:15px;margin-right:auto}
+  button{background:#242833;color:#c9cdd6;border:1px solid #333947;border-radius:999px;
+         padding:7px 16px;font-size:14px;cursor:pointer}
+  button[aria-pressed=true]{background:#3b82f6;border-color:#3b82f6;color:#fff}
+  #estado{font-size:12px;color:#7d8594}
+  main{padding:18px 16px 60vh;max-width:760px;margin:0 auto}
+  p.linea{margin:0 0 20px;font-size:22px;color:#6d7482;transition:color .3s}
+  p.linea:last-child{color:#fff}
+  p.linea:nth-last-child(2){color:#b9c0cc}
+  #vacio{color:#6d7482;text-align:center;margin-top:22vh}
+  #tamano{font-size:12px;color:#7d8594;cursor:pointer;user-select:none}
+</style>
+</head>
+<body>
+<header>
+  <b>Traducción en vivo</b>
+  <span id="idiomas"></span>
+  <span id="tamano" title="Tamaño del texto">A+</span>
+  <span id="estado">conectando</span>
+</header>
+<main>
+  <div id="vacio">Esperando el inicio del culto...</div>
+  <div id="texto"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let idiomas = [], actual = localStorage.getItem('idioma') || null;
+const lineas = new Map();
+
+// El tamaño de letra queda guardado: cada persona lo ajusta una sola vez.
+let escala = +(localStorage.getItem('escala') || 1);
+const aplicarEscala = () => document.querySelectorAll('.linea')
+  .forEach(p => p.style.fontSize = (22 * escala) + 'px');
+$('tamano').onclick = () => {
+  escala = escala >= 1.6 ? .85 : escala + .25;
+  localStorage.setItem('escala', escala); aplicarEscala();
+};
+
+function botones(){
+  const c = $('idiomas'); c.innerHTML = '';
+  if (!actual || !idiomas.some(l => l.idioma === actual))
+    actual = idiomas.length ? idiomas[0].idioma : null;
+  // Con un solo idioma el selector sobra.
+  if (idiomas.length < 2) return;
+  idiomas.forEach(l => {
+    const b = document.createElement('button');
+    b.textContent = l.nombre;
+    b.dataset.idioma = l.idioma;
+    b.setAttribute('aria-pressed', l.idioma === actual);
+    b.onclick = () => { actual = l.idioma; localStorage.setItem('idioma', actual);
+                        botones(); pintar(); };
+    c.appendChild(b);
+  });
+}
+
+function pintar(){
+  const visibles = [...lineas.entries()].sort((a,b) => a[0]-b[0])
+      .map(([,t]) => t[actual]).filter(Boolean).slice(-50);
+  $('vacio').style.display = visibles.length ? 'none' : '';
+  const pegado = window.innerHeight + window.scrollY >= document.body.scrollHeight - 150;
+  $('texto').innerHTML = '';
+  visibles.forEach(t => {
+    const p = document.createElement('p');
+    p.className = 'linea'; p.textContent = t;
+    $('texto').appendChild(p);
+  });
+  aplicarEscala();
+  if (pegado) window.scrollTo(0, document.body.scrollHeight);
+}
+
+const fuente = new EventSource('/eventos');
+fuente.onopen = () => $('estado').textContent = 'en vivo';
+fuente.onerror = () => $('estado').textContent = 'reconectando';
+fuente.onmessage = ev => {
+  const d = JSON.parse(ev.data);
+  if (d.tipo === 'estado') {
+    if (d.idiomas && d.idiomas.length !== idiomas.length) { idiomas = d.idiomas; botones(); }
+  } else if (d.tipo === 'frase' && d.traducciones) {
+    lineas.set(d.seq, d.traducciones); pintar();
+  }
+};
+</script>
+</body>
+</html>

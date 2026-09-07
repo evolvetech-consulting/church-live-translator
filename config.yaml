@@ -1,0 +1,138 @@
+# =============================================================
+#  Traductor automatico de culto
+#  Correr `python -m tools.dispositivos` para ver los nombres
+#  exactos de las placas de audio de esta computadora.
+# =============================================================
+
+entrada:
+  # Coincidencia por subcadena del nombre del dispositivo (no distingue
+  # mayusculas). "UM2" matchea "UM2  Behringer" etc.
+  # Poner null para usar el dispositivo de entrada por defecto del sistema.
+  dispositivo: "UM2"
+  # Frecuencia a la que abrimos la placa. 48000 es lo que soporta casi todo.
+  # Internamente remuestreamos a 16 kHz para Whisper.
+  frecuencia: 48000
+  canal: 0          # 0 = izquierdo/mono. El aux send del mixer entra por aca.
+
+# -------------------------------------------------------------
+# Deteccion de voz: define DONDE se corta cada frase.
+# Es la pieza que mas afecta la latencia percibida.
+# -------------------------------------------------------------
+vad:
+  # silero = red neuronal, robusta si se filtra musica o ruido de sala (default).
+  # energia = umbral de volumen adaptativo, mas liviano y predecible.
+  motor: "silero"
+  # 0..1. Subirlo si engancha ruido; bajarlo si se come palabras.
+  umbral: 0.5
+  # Cortar en las pausas del orador, pero no en cualquiera: un predicador
+  # hace pausas cortas EN MEDIO de la oracion, y cortar ahi manda a traducir
+  # pedazos sueltos que por separado no significan nada.
+  #
+  #   silencio_fin_ms   -> cierra la frase si ya tiene cuerpo (min_frase_s)
+  #   silencio_largo_ms -> cierra siempre: aca el orador termino de verdad
+  #   min_frase_s       -> por debajo de esto seguimos acumulando
+  #
+  # Subir min_frase_s da mejores traducciones pero mas latencia. Bajarlo
+  # responde antes y fragmenta mas.
+  silencio_fin_ms: 700
+  silencio_largo_ms: 1600
+  min_frase_s: 3.0
+  # Ignorar "frases" mas cortas que esto (toses, golpes de micro).
+  min_voz_ms: 400
+  # Corte forzado: si alguien habla sin pausas, no esperamos para siempre.
+  # El corte busca el punto mas silencioso reciente para no partir una palabra.
+  max_frase_s: 14.0
+  # Audio previo al inicio detectado que igual mandamos (no comerse la
+  # primera silaba).
+  pre_roll_ms: 300
+stt:
+  # tiny | base | small | medium | large-v3
+  # small = buen equilibrio en CPU. medium = notablemente mejor si hay GPU
+  # o un Apple Silicon con aire.
+  modelo: "small"
+  idioma: "es"
+  dispositivo: "auto"        # auto | cpu | cuda
+  tipo_computo: "auto"       # auto | int8 | int8_float16 | float16
+  # Sesga el reconocimiento hacia el vocabulario de la iglesia.
+  # Se arma solo a partir de glosario.yaml, esto se le suma.
+  contexto_inicial: ""
+
+# -------------------------------------------------------------
+# Traduccion
+# -------------------------------------------------------------
+traduccion:
+  # claude | gemini | local
+  #   claude / gemini -> calidad alta, ~centavos por culto, necesita internet
+  #   local           -> gratis y offline, calidad menor (es el mismo fallback
+  #                      automatico que se usa si se cae la conexion)
+  #
+  # La clave va en .env:  GEMINI_API_KEY=...  o  ANTHROPIC_API_KEY=...
+  # Verificar con:  .venv/bin/python -m tools.probar_traduccion
+  proveedor: "gemini"
+
+  # gemini -> gemini-2.5-flash (rapido y barato) | gemini-2.5-pro (mejor)
+  # claude -> claude-haiku-4-5 (rapido y barato) | claude-sonnet-5 (mejor)
+  modelo: "gemini-2.5-flash"
+
+  # Cuantas frases anteriores mandamos como contexto. Da coherencia en
+  # pronombres y en el hilo del sermon. Mas contexto = un poco mas lento.
+  frases_contexto: 4
+
+  # Si el proveedor tarda mas que esto, se usa el fallback y se sigue.
+  timeout_s: 6.0
+salidas:
+  - idioma: "en"
+    nombre: "Ingles"
+    dispositivo: "UM2"
+    canal: 0                       # izquierdo -> transmisor 1
+    voz: "en_US-lessac-medium"
+    velocidad: 1.0                 # 1.0 normal, <1.0 mas lento
+    ganancia: 0.7                  # 0..1. La entrada del T130 es de MICROFONO:
+                                   # si satura, bajar esto (ver README).
+
+  # Descomentar para un segundo idioma por el canal derecho:
+  # - idioma: "pt"
+  #   nombre: "Portugues"
+  #   dispositivo: "UM2"
+  #   canal: 1                     # derecho -> transmisor 2
+  #   voz: "pt_BR-faber-medium"
+  #   velocidad: 1.0
+  #   ganancia: 0.7
+
+# -------------------------------------------------------------
+# Control de latencia acumulada.
+#
+# El problema: si el predicador no para de hablar, la cola de audio
+# por traducir crece y a los 20 minutos estas 40 segundos atras.
+# Solucion: acelerar la sintesis cuando la cola crece.
+# -------------------------------------------------------------
+latencia:
+  # A partir de esta cola pendiente (segundos) empezamos a acelerar.
+  umbral_aceleracion_s: 4.0
+  # Cola a la que se llega a la velocidad maxima.
+  umbral_maximo_s: 12.0
+  # Velocidad maxima de habla. 1.25 todavia se entiende bien; mas ya cansa.
+  velocidad_maxima: 1.25
+  # Si la cola supera esto, descartamos lo mas viejo: preferimos estar
+  # sincronizados a decirlo todo.
+  descartar_sobre_s: 25.0
+
+# -------------------------------------------------------------
+# Interfaz web. Dos paginas sobre el mismo servidor:
+#
+#   /            panel del operador: niveles, atraso por idioma,
+#                transcripcion en vivo y tiempos de proceso.
+#   /subtitulos  vista para la congregacion, la del codigo QR.
+#
+# Los subtitulos no cuestan nada extra (el texto ya lo tenemos) y
+# sirven para personas sordas, para quien no alcanzo un receptor,
+# y como respaldo si falla un transmisor.
+# -------------------------------------------------------------
+web:
+  activo: true
+  puerto: 8080
+
+registro:
+  # Guarda transcripcion + traduccion de cada culto para revisar despues
+  # y para ir mejorando el glosario.
+  carpeta: "registros"

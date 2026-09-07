@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel del traductor</title>
+<style>
+  :root{
+    --fondo:#0e1116; --panel:#161a22; --borde:#242a35; --texto:#e6e9ef;
+    --tenue:#8b93a3; --verde:#3fb950; --amarillo:#d29922; --rojo:#f85149;
+    --azul:#4b93f7; color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);
+       font:14px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif}
+  header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+         padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--borde);
+         position:sticky;top:0;z-index:10}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;
+        padding:4px 11px;border-radius:999px;border:1px solid var(--borde);
+        background:#1c2029;white-space:nowrap}
+  .punto{width:7px;height:7px;border-radius:50%;background:var(--tenue);flex:none}
+  .punto.on{background:var(--verde);box-shadow:0 0 7px var(--verde)}
+  .punto.warn{background:var(--amarillo);box-shadow:0 0 7px var(--amarillo)}
+  .punto.off{background:var(--rojo)}
+  .crece{margin-left:auto}
+  main{padding:18px 20px;max-width:1180px;margin:0 auto;
+       display:grid;gap:16px;grid-template-columns:320px 1fr}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .caja{background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:14px 16px}
+  .caja h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;
+           color:var(--tenue);margin:0 0 12px;font-weight:600}
+  .medidor{height:9px;background:#0b0e13;border-radius:5px;overflow:hidden;
+           border:1px solid var(--borde)}
+  .medidor i{display:block;height:100%;width:0;background:var(--verde);
+             transition:width .08s linear}
+  .medidor i.warn{background:var(--amarillo)} .medidor i.hot{background:var(--rojo)}
+  .fila{display:flex;justify-content:space-between;align-items:baseline;
+        gap:10px;margin:11px 0 5px;font-size:12px;color:var(--tenue)}
+  .fila b{color:var(--texto);font-weight:600;font-variant-numeric:tabular-nums}
+  .canal{border-top:1px solid var(--borde);padding-top:13px;margin-top:13px}
+  .canal:first-of-type{border-top:0;padding-top:0;margin-top:0}
+  .canal .cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+  .canal .nom{font-weight:600}
+  .canal .ruta{font-size:11px;color:var(--tenue);font-variant-numeric:tabular-nums}
+  .atraso{font-size:11px;font-variant-numeric:tabular-nums;padding:1px 7px;
+          border-radius:4px;background:#1c2029}
+  .atraso.warn{color:var(--amarillo)} .atraso.hot{color:var(--rojo);background:#2a1517}
+  #feed{max-height:calc(100vh - 190px);overflow-y:auto;scroll-behavior:smooth}
+  .frase{border-bottom:1px solid var(--borde);padding:11px 2px}
+  .frase:last-child{border-bottom:0}
+  .frase .meta{font-size:11px;color:var(--tenue);font-variant-numeric:tabular-nums;
+               display:flex;gap:11px;margin-bottom:4px}
+  .frase .es{font-size:14.5px}
+  .frase .tr{font-size:14px;color:#a9b3c4;margin-top:4px;padding-left:11px;
+             border-left:2px solid var(--azul)}
+  .frase .tr .cod{color:var(--azul);font-size:11px;text-transform:uppercase;
+                  margin-right:7px;font-weight:600}
+  .frase.off .tr{border-left-color:var(--amarillo)}
+  .frase.off .tr .cod{color:var(--amarillo)}
+  #vacio{color:var(--tenue);text-align:center;padding:50px 0}
+  a{color:var(--azul)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Traductor del culto</h1>
+  <span class="chip"><i class="punto" id="p-con"></i><span id="con">conectando</span></span>
+  <span class="chip"><i class="punto" id="p-modo"></i><span id="modo">-</span></span>
+  <span class="chip" id="tiempo">00:00</span>
+  <span class="chip"><b id="n-frases">0</b>&nbsp;frases</span>
+  <span class="chip crece"><a href="/subtitulos" target="_blank">Vista congregación →</a></span>
+</header>
+
+<main>
+  <div>
+    <div class="caja">
+      <h2>Entrada</h2>
+      <div class="medidor"><i id="m-ent"></i></div>
+      <div class="fila"><span id="dispositivo">-</span><b id="v-ent">0%</b></div>
+      <div class="fila" style="color:var(--tenue);font-size:11px;border-top:1px solid var(--borde);padding-top:9px">
+        <span>Si esto no se mueve cuando alguien habla, revisá el aux send del mixer.</span>
+      </div>
+    </div>
+    <div class="caja" style="margin-top:16px">
+      <h2>Canales de salida</h2>
+      <div id="canales"></div>
+    </div>
+    <div class="caja" style="margin-top:16px">
+      <h2>Proceso</h2>
+      <div class="fila"><span>whisper</span><b id="t-stt">-</b></div>
+      <div class="fila"><span>traducción</span><b id="t-trad">-</b></div>
+      <div class="fila"><span>voz</span><b id="t-tts">-</b></div>
+      <div class="fila" style="border-top:1px solid var(--borde);padding-top:9px">
+        <span>total por frase</span><b id="t-total">-</b></div>
+    </div>
+  </div>
+
+  <div class="caja">
+    <h2>Transcripción y traducción</h2>
+    <div id="feed"><div id="vacio">Esperando audio...</div></div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const frases = new Map();
+let idiomas = [], pegadoAbajo = true;
+
+$('feed').addEventListener('scroll', e => {
+  const el = e.target;
+  pegadoAbajo = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+});
+
+function nivel(barra, valor){
+  barra.style.width = Math.min(valor * 100, 100) + '%';
+  barra.className = valor > .95 ? 'hot' : valor > .7 ? 'warn' : '';
+}
+
+function pintarCanales(estado){
+  const cont = $('canales');
+  if (cont.children.length !== idiomas.length) {
+    cont.innerHTML = idiomas.map(l => `
+      <div class="canal" data-i="${l.idioma}">
+        <div class="cab"><span class="nom">${l.nombre}</span>
+          <span class="ruta">${l.ruta}</span></div>
+        <div class="medidor"><i></i></div>
+        <div class="fila"><span>atraso</span><span class="atraso">-</span></div>
+      </div>`).join('');
+  }
+  for (const l of idiomas) {
+    const c = cont.querySelector(`[data-i="${l.idioma}"]`);
+    const d = (estado.canales || {})[l.idioma] || {};
+    nivel(c.querySelector('.medidor i'), d.nivel || 0);
+    const a = c.querySelector('.atraso');
+    a.textContent = (d.atraso ?? 0).toFixed(1) + 's';
+    a.className = 'atraso' + (d.atraso > d.umbral_alto ? ' hot'
+                            : d.atraso > d.umbral_medio ? ' warn' : '');
+  }
+}
+
+function pintarFrase(f){
+  frases.set(f.seq, f);
+  let el = document.querySelector(`.frase[data-seq="${f.seq}"]`);
+  if (!el) {
+    $('vacio').style.display = 'none';
+    el = document.createElement('div');
+    el.className = 'frase';
+    el.dataset.seq = f.seq;
+    $('feed').appendChild(el);
+    while ($('feed').children.length > 200) $('feed').children[1].remove();
+  }
+  el.classList.toggle('off', !!f.offline);
+  const mm = String(Math.floor(f.t / 60)).padStart(2,'0'),
+        ss = String(Math.floor(f.t % 60)).padStart(2,'0');
+  const tiempos = f.ms_trad
+      ? `<span>${((f.ms_stt + f.ms_trad) / 1000).toFixed(1)}s</span>` : '';
+  el.innerHTML = `<div class="meta"><span>#${f.seq}</span><span>${mm}:${ss}</span>${tiempos}
+      ${f.offline ? '<span style="color:var(--amarillo)">offline</span>' : ''}</div>
+    <div class="es">${esc(f.es)}</div>` +
+    Object.entries(f.traducciones || {}).filter(([,t]) => t)
+      .map(([i,t]) => `<div class="tr"><span class="cod">${i}</span>${esc(t)}</div>`).join('');
+  if (pegadoAbajo) $('feed').scrollTop = $('feed').scrollHeight;
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function pintarEstado(e){
+  nivel($('m-ent'), e.entrada || 0);
+  $('v-ent').textContent = Math.round((e.entrada || 0) * 100) + '%';
+  $('dispositivo').textContent = e.dispositivo || '-';
+  $('n-frases').textContent = e.frases || 0;
+  const s = e.transcurrido || 0;
+  $('tiempo').textContent = String(Math.floor(s/60)).padStart(2,'0') + ':'
+                          + String(Math.floor(s%60)).padStart(2,'0');
+  $('modo').textContent = e.modo === 'claude' ? 'Claude' : 'Offline (Whisper)';
+  $('p-modo').className = 'punto ' + (e.modo === 'claude' ? 'on' : 'warn');
+  if (e.idiomas) idiomas = e.idiomas;
+  pintarCanales(e);
+  const p = e.promedios || {};
+  const ms = v => v ? (v/1000).toFixed(2) + 's' : '-';
+  $('t-stt').textContent = ms(p.stt); $('t-trad').textContent = ms(p.trad);
+  $('t-tts').textContent = ms(p.tts);
+  $('t-total').textContent = ms((p.stt||0) + (p.trad||0) + (p.tts||0));
+}
+
+const fuente = new EventSource('/eventos');
+fuente.onopen = () => { $('con').textContent = 'en vivo'; $('p-con').className = 'punto on'; };
+fuente.onerror = () => { $('con').textContent = 'reconectando'; $('p-con').className = 'punto off'; };
+fuente.onmessage = ev => {
+  const d = JSON.parse(ev.data);
+  if (d.tipo === 'estado') pintarEstado(d);
+  else if (d.tipo === 'frase') pintarFrase(d);
+};
+</script>
+</body>
+</html>
