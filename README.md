@@ -257,15 +257,16 @@ repiten se arreglan agregando una línea al glosario.
 
 ## 8. Latencia
 
-Medido en una MacBook M1 Pro con `small`, sobre audio real de un culto:
+Medido en una MacBook M1 Pro con `small` y `gemini-2.5-flash`, sobre audio real
+de un culto (4 minutos, 51 frases):
 
 | Etapa                       | Tiempo  |
 |-----------------------------|---------|
 | Pausa que espera el VAD      | 0.70 s  |
-| Whisper (reconocimiento)     | 0.80 s  |
-| Traducción (Gemini/Claude)   | ~0.6 s  |
-| Síntesis de voz              | 0.08 s  |
-| **Total**                    | **~2.2 s** |
+| Whisper (reconocimiento)     | 0.85 s  |
+| Traducción                   | 0.54 s  |
+| Síntesis de voz              | 0.11 s  |
+| **Total**                    | **2.20 s** |
 
 Comparable a un intérprete humano, o mejor.
 

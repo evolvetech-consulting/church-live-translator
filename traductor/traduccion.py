@@ -20,6 +20,8 @@ import logging
 import os
 import time
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as TiempoAgotado
 
 import numpy as np
 
@@ -75,15 +77,23 @@ class TraductorLLM:
         )
         # El esquema obliga a que vuelva un objeto con exactamente un campo por
         # idioma: no hay que parsear prosa ni lidiar con formatos raros.
+        # Cada proveedor acepta un subconjunto distinto de JSON Schema, asi que
+        # la base es el minimo comun y cada uno le agrega lo suyo.
         self.esquema = {
             "type": "object",
             "properties": {i: {"type": "string"} for i in idiomas},
             "required": list(idiomas),
-            "additionalProperties": False,
         }
         self._historial: deque[tuple[str, dict[str, str]]] = deque(
             maxlen=max(cfg.frases_contexto, 0)
         )
+        # El timeout lo controlamos nosotros, no el SDK: Gemini no acepta
+        # deadlines HTTP menores a 10s, y esperar 10s por una respuesta en
+        # medio de un culto es inaceptable. Si tarda de mas, abandonamos la
+        # llamada (termina sola en segundo plano y se descarta) y seguimos
+        # con el modo offline.
+        self._pool = ThreadPoolExecutor(max_workers=4,
+                                        thread_name_prefix="traduccion")
 
     def _mensaje(self, texto: str) -> str:
         partes = []
@@ -96,7 +106,14 @@ class TraductorLLM:
         return "\n".join(partes)
 
     def traducir(self, texto: str) -> dict[str, str]:
-        crudo = self._llamar(self._mensaje(texto))
+        futuro = self._pool.submit(self._llamar, self._mensaje(texto))
+        try:
+            crudo = futuro.result(timeout=self.cfg.timeout_s)
+        except TiempoAgotado:
+            futuro.cancel()
+            raise TimeoutError(
+                f"el proveedor no respondio en {self.cfg.timeout_s:g}s"
+            ) from None
         datos = json.loads(crudo)
         traducciones = {i: str(datos.get(i) or "").strip() for i in self.idiomas}
         self._historial.append((texto, traducciones))
@@ -117,6 +134,9 @@ class TraductorClaude(TraductorLLM):
             timeout=cfg.timeout_s,
             max_retries=0,  # en vivo no hay tiempo de reintentar: al fallback
         )
+        # Claude exige additionalProperties para el modo estricto; Gemini lo
+        # rechaza como campo desconocido.
+        self.esquema = {**self.esquema, "additionalProperties": False}
 
     def _llamar(self, mensaje: str) -> str:
         respuesta = self.cliente.messages.create(
@@ -160,7 +180,15 @@ class TraductorGemini(TraductorLLM):
             # Sin razonamiento previo: en vivo cada decima cuenta y esta tarea
             # no lo necesita.
             thinking_config=types.ThinkingConfig(thinking_budget=0),
-            http_options=types.HttpOptions(timeout=int(cfg.timeout_s * 1000)),
+            # No usamos herramientas: sin esto el SDK avisa por cada llamada.
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            ),
+            # Piso que impone la API. El limite util es el nuestro, mas corto:
+            # ver el timeout del lado del cliente en TraductorLLM.traducir().
+            http_options=types.HttpOptions(
+                timeout=max(10_000, int(cfg.timeout_s * 1000))
+            ),
         )
 
     def _llamar(self, mensaje: str) -> str:
