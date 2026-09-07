@@ -22,52 +22,81 @@ from .audio import buscar_dispositivo
 
 
 class BufferIdioma:
-    """Cola de audio ya sintetizado, lista para que la consuma la placa."""
+    """Cola de frases ya sintetizadas, lista para que la consuma la placa.
 
-    def __init__(self, ganancia: float = 1.0):
+    Se distingue la frase que esta sonando de las que esperan turno. Es la
+    diferencia entre descartar bien y descartar mal: si al recortar la cola se
+    tira lo que esta sonando, el audio se corta en la mitad de una palabra y
+    suena a falla. Aca lo que suena termina siempre; se descartan las que
+    todavia no empezaron.
+    """
+
+    # Rampa de entrada y salida de cada frase. Sin esto, pasar de una frase a
+    # otra deja un salto en la onda que se escucha como un clic.
+    RAMPA_MS = 8
+
+    def __init__(self, ganancia: float = 1.0, frecuencia: int = 48000):
         self.ganancia = ganancia
-        self._trozos: deque[np.ndarray] = deque()
-        self._muestras = 0
+        self.frecuencia = frecuencia
+        self._rampa = max(1, int(frecuencia * self.RAMPA_MS / 1000))
+        self._pendientes: deque[np.ndarray] = deque()
+        self._actual: np.ndarray | None = None
+        self._pos = 0
         self._lock = threading.Lock()
+
+    def _suavizar(self, audio: np.ndarray) -> np.ndarray:
+        n = min(self._rampa, len(audio) // 2)
+        if n < 2:
+            return audio
+        audio = audio.copy()
+        rampa = np.linspace(0.0, 1.0, n, dtype=np.float32)
+        audio[:n] *= rampa
+        audio[-n:] *= rampa[::-1]
+        return audio
 
     def agregar(self, audio: np.ndarray) -> None:
         if audio.size == 0:
             return
         with self._lock:
-            self._trozos.append(audio)
-            self._muestras += len(audio)
+            self._pendientes.append(self._suavizar(audio))
 
     def tomar(self, n: int) -> np.ndarray:
         """Saca n muestras; completa con silencio si no alcanza."""
         salida = np.zeros(n, dtype=np.float32)
         escrito = 0
         with self._lock:
-            while escrito < n and self._trozos:
-                trozo = self._trozos[0]
-                falta = n - escrito
-                if len(trozo) <= falta:
-                    salida[escrito : escrito + len(trozo)] = trozo
-                    escrito += len(trozo)
-                    self._trozos.popleft()
-                    self._muestras -= len(trozo)
-                else:
-                    salida[escrito:] = trozo[:falta]
-                    self._trozos[0] = trozo[falta:]
-                    self._muestras -= falta
-                    escrito = n
+            while escrito < n:
+                if self._actual is None:
+                    if not self._pendientes:
+                        break
+                    self._actual, self._pos = self._pendientes.popleft(), 0
+                queda = len(self._actual) - self._pos
+                toma = min(queda, n - escrito)
+                salida[escrito : escrito + toma] = self._actual[self._pos : self._pos + toma]
+                self._pos += toma
+                escrito += toma
+                if self._pos >= len(self._actual):
+                    self._actual = None
         return salida * self.ganancia
 
     def muestras_pendientes(self) -> int:
         with self._lock:
-            return self._muestras
+            restante = 0 if self._actual is None else len(self._actual) - self._pos
+            return restante + sum(len(t) for t in self._pendientes)
 
-    def vaciar_hasta(self, muestras_max: int) -> int:
-        """Descarta lo mas viejo si la cola se fue de mano. Devuelve lo tirado."""
+    def recortar(self, muestras_max: int) -> int:
+        """Descarta frases en espera si la cola se fue de mano.
+
+        Nunca toca la que esta sonando: preferimos terminar la frase en curso
+        (unos segundos) antes que un corte audible en el medio de una palabra.
+        """
         tirado = 0
         with self._lock:
-            while self._muestras > muestras_max and self._trozos:
-                trozo = self._trozos.popleft()
-                self._muestras -= len(trozo)
+            restante = 0 if self._actual is None else len(self._actual) - self._pos
+            total = restante + sum(len(t) for t in self._pendientes)
+            while total > muestras_max and self._pendientes:
+                trozo = self._pendientes.popleft()
+                total -= len(trozo)
                 tirado += len(trozo)
         return tirado
 
@@ -78,7 +107,7 @@ class Ruteador:
     def __init__(self, salidas, frecuencia: int = 48000):
         self.frecuencia = frecuencia
         self.buffers: dict[str, BufferIdioma] = {
-            s.idioma: BufferIdioma(s.ganancia) for s in salidas
+            s.idioma: BufferIdioma(s.ganancia, frecuencia) for s in salidas
         }
         self.salidas = {s.idioma: s for s in salidas}
 
@@ -189,5 +218,5 @@ class Ruteador:
         return self.buffers[idioma].muestras_pendientes() / self.frecuencia
 
     def descartar_sobre(self, idioma: str, segundos: float) -> float:
-        tirado = self.buffers[idioma].vaciar_hasta(int(segundos * self.frecuencia))
+        tirado = self.buffers[idioma].recortar(int(segundos * self.frecuencia))
         return tirado / self.frecuencia

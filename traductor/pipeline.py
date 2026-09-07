@@ -175,9 +175,13 @@ class Pipeline:
             if item is None:
                 break
             ev, audio = item
+            # Cuanto atras vamos, para que el traductor condense si hace falta.
+            atraso = max(
+                (self.ruteador.pendiente_s(i) for i in self.idiomas), default=0.0
+            )
             t0 = time.perf_counter()
             try:
-                ev.traducciones = self.traductor.traducir(ev.texto, audio)
+                ev.traducciones = self.traductor.traducir(ev.texto, audio, atraso)
             except Exception:
                 log.exception("Fallo la traduccion de la frase #%d", ev.seq)
                 continue
@@ -217,14 +221,38 @@ class Pipeline:
             ev, texto = item
 
             # Si la cola se fue de mano, preferimos estar sincronizados a
-            # decirlo todo: tiramos lo mas viejo, que ya perdio sentido.
+            # decirlo todo: lo viejo ya perdio sentido porque el predicador
+            # esta hablando de otra cosa.
+            #
+            # Primero se descartan frases que ni siquiera se sintetizaron:
+            # gastar CPU en generar audio que vamos a tirar solo empeora el
+            # atraso. Recien despues se recorta lo ya sintetizado, y eso nunca
+            # toca la frase que esta sonando.
+            if self.ruteador.pendiente_s(idioma) > self.cfg.latencia.descartar_sobre_s:
+                saltadas = 0
+                while cola.qsize() > 1:
+                    try:
+                        siguiente = cola.get_nowait()
+                    except queue.Empty:
+                        break
+                    if siguiente is None:
+                        cola.put(None)
+                        break
+                    ev, texto = siguiente
+                    saltadas += 1
+                if saltadas:
+                    log.warning(
+                        "[%s] muy atrasado: saltee %d frase(s) sin sintetizar",
+                        idioma, saltadas,
+                    )
+
             tirado = self.ruteador.descartar_sobre(
                 idioma, self.cfg.latencia.descartar_sobre_s
             )
             if tirado:
                 self.descartado_s[idioma] += tirado
                 log.warning(
-                    "[%s] cola muy larga: descarto %.1fs para volver a sincronizar",
+                    "[%s] cola muy larga: descarto %.1fs de frases en espera",
                     idioma, tirado,
                 )
 

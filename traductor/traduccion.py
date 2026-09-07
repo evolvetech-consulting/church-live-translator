@@ -95,18 +95,33 @@ class TraductorLLM:
         self._pool = ThreadPoolExecutor(max_workers=4,
                                         thread_name_prefix="traduccion")
 
-    def _mensaje(self, texto: str) -> str:
+    def _mensaje(self, texto: str, atraso: float = 0.0) -> str:
         partes = []
         if self._historial:
             previas = "\n".join(f"- {es}" for es, _ in self._historial)
             partes.append(
                 f"Frases anteriores del predicador (solo contexto):\n{previas}\n"
             )
+        # Un interprete humano que se queda atras no se apura ni se saltea
+        # frases: condensa. Dice lo mismo con menos palabras hasta alcanzar al
+        # orador. Es lo unico que suena natural cuando hay que recuperar
+        # tiempo, y un modelo lo hace bien si se le pide.
+        if atraso >= 6.0:
+            fuerte = atraso >= 12.0
+            partes.append(
+                f"IMPORTANTE: la traduccion va {atraso:.0f} segundos atrasada. "
+                + ("Condensa fuerte: deja solo la idea central, en la menor "
+                   "cantidad de palabras posible, sacando repeticiones, "
+                   "muletillas y adornos."
+                   if fuerte else
+                   "Se mas breve que de costumbre: misma idea, menos palabras.")
+                + " No omitas informacion importante ni cambies el sentido.\n"
+            )
         partes.append(f"Frase a traducir ahora:\n{texto}")
         return "\n".join(partes)
 
-    def traducir(self, texto: str) -> dict[str, str]:
-        futuro = self._pool.submit(self._llamar, self._mensaje(texto))
+    def traducir(self, texto: str, atraso: float = 0.0) -> dict[str, str]:
+        futuro = self._pool.submit(self._llamar, self._mensaje(texto, atraso))
         try:
             crudo = futuro.result(timeout=self.cfg.timeout_s)
         except TiempoAgotado:
@@ -269,10 +284,11 @@ class Traductor:
                 f"Cargar la clave en .env o sacar esos idiomas de config.yaml."
             )
 
-    def traducir(self, texto: str, audio: np.ndarray) -> dict[str, str]:
+    def traducir(self, texto: str, audio: np.ndarray,
+                 atraso: float = 0.0) -> dict[str, str]:
         if self.principal is not None and time.monotonic() >= self._reintentar_desde:
             try:
-                traducciones = self.principal.traducir(texto)
+                traducciones = self.principal.traducir(texto, atraso)
                 if self.usando_fallback:
                     log.info("%s volvio a responder.", self.proveedor)
                     self.usando_fallback = False
