@@ -1,0 +1,72 @@
+# =============================================================
+#  Configuracion para probar en una laptop, sin la UM2 ni los
+#  transmisores. Sirve para hablarle al microfono de la maquina
+#  y escuchar la traduccion al instante.
+#
+#      .venv/bin/python main.py -c config.mac.yaml
+#
+#  >>> PONETE AURICULARES <<<
+#  Si sale por los parlantes, el microfono se escucha a si mismo:
+#  la traduccion en ingles vuelve a entrar, se transcribe, y se
+#  traduce de nuevo. Con auriculares el problema no existe.
+#
+#  Para el culto de verdad se usa config.yaml, que es el que
+#  tiene la UM2 y los canales de los transmisores.
+# =============================================================
+
+entrada:
+  # null = lo que tengas puesto como entrada por defecto del sistema.
+  # Asi sigue a los auriculares cuando los conectas, sin tocar nada.
+  dispositivo: null
+  frecuencia: 48000
+  canal: 0
+
+vad:
+  motor: "silero"
+  umbral: 0.5
+  silencio_fin_ms: 700
+  silencio_largo_ms: 1600
+  # Mas corto que en el culto: hablando de a una frase suelta para probar,
+  # esperar 3 segundos de "cuerpo" se siente eterno. En un sermon real
+  # conviene el valor de config.yaml.
+  min_frase_s: 1.5
+  min_voz_ms: 400
+  max_frase_s: 14.0
+  pre_roll_ms: 300
+
+stt:
+  modelo: "small"
+  idioma: "es"
+  dispositivo: "auto"
+  tipo_computo: "auto"
+  contexto_inicial: ""
+
+traduccion:
+  proveedor: "gemini"
+  modelo: "gemini-2.5-flash"
+  frases_contexto: 4
+  timeout_s: 6.0
+
+salidas:
+  - idioma: "en"
+    nombre: "Ingles"
+    dispositivo: null     # salida por defecto del sistema (tus auriculares)
+    canal: 0
+    voz: "en_US-lessac-medium"
+    velocidad: 1.0
+    # Alto a proposito: aca va a unos auriculares, no a la entrada de
+    # microfono de un T130 (que satura facil y por eso alla va en 0.7).
+    ganancia: 1.0
+
+latencia:
+  umbral_aceleracion_s: 4.0
+  umbral_maximo_s: 12.0
+  velocidad_maxima: 1.25
+  descartar_sobre_s: 25.0
+
+web:
+  activo: true
+  puerto: 8080
+
+registro:
+  carpeta: "registros"

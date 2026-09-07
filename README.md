@@ -196,7 +196,27 @@ navegador. `Ctrl+C` para terminar.
 La página del QR. Elige idioma (si hay más de uno), guarda la preferencia y
 tiene un botón para agrandar la letra. Poné el QR en el boletín.
 
-### Probar sin hardware
+### Probar en vivo desde una laptop
+
+Sin la UM2 ni los transmisores: le hablás al micrófono de la máquina y escuchás
+la traducción al instante.
+
+```bash
+.venv/bin/python main.py -c config.mac.yaml
+```
+
+Usa la entrada y la salida que tengas puestas por defecto en el sistema, así que
+sigue a los auriculares cuando los conectás.
+
+> **Ponete auriculares.** Si sale por los parlantes, el micrófono se escucha a sí
+> mismo: la traducción en inglés vuelve a entrar, se transcribe y se traduce de
+> nuevo.
+
+`config.mac.yaml` también baja `min_frase_s` a 1.5s: hablando de a una frase
+suelta para probar, esperar 3 segundos de "cuerpo" se siente eterno. Para el
+culto de verdad se usa `config.yaml`.
+
+### Probar sin micrófono
 
 ```bash
 .venv/bin/python -m tools.simulacro --demo          # guion de ejemplo
@@ -339,6 +359,7 @@ esperando portugués).
 | `instalar.bat` / `.command` | Instalador de doble clic (la lógica está en `instalar.py`) |
 | `main.py` | Arranque y panel del operador |
 | `config.yaml` | Toda la configuración |
+| `config.mac.yaml` | Configuración para probar en una laptop |
 | `glosario.yaml` | Vocabulario y términos de la iglesia |
 | `.env` | La clave del proveedor (crear a partir de `.env.ejemplo`) |
 | `traductor/audio.py` | Captura y corte en frases (VAD) |
