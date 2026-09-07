@@ -43,6 +43,16 @@ Reglas:
 - Si una frase queda cortada a la mitad, traducila igual tal como esta. La
   frase siguiente la va a continuar.
 - Nombres propios de personas quedan sin traducir.
+- La PUNTUACION importa mucho: no es adorno, es lo unico que le dice a la voz
+  que entonacion usar. Decidila vos por el sentido de la frase, sin copiar la
+  del reconocimiento de voz, que a menudo no pone ninguna:
+    * Si la frase es una pregunta, terminala en '?' aunque en español venga sin
+      signos. "Entienden bien" es una pregunta y va "Do you understand?".
+    * Exclamaciones, llamados y enfasis llevan '!'.
+    * Toda frase que este completa termina en '.', '?' o '!'.
+    * Solo si la frase quedo cortada de verdad a la mitad (termina en medio de
+      una idea, y la que sigue la va a continuar) la dejas sin signo final,
+      para que la voz no baje el tono como si hubiera terminado.
 - Las citas biblicas van con la redaccion habitual de las traducciones mas
   usadas en cada idioma, no palabra por palabra desde el español.
 - Si la frase no tiene contenido traducible (ruido, una tos, una muletilla

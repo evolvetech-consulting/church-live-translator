@@ -78,9 +78,17 @@ class MotorTTS:
     """Convierte texto en audio. Una instancia por idioma de salida."""
 
     def __init__(self, voz: str, velocidad_base: float = 1.0,
-                 carpeta: Path = CARPETA_VOCES, bajar_si_falta: bool = False):
+                 carpeta: Path = CARPETA_VOCES, bajar_si_falta: bool = False,
+                 expresividad: float | None = None):
         self.voz = voz
         self.velocidad_base = velocidad_base
+        # Variabilidad de tono y de duracion de los fonemas. None deja los
+        # valores propios de la voz, que es lo recomendado.
+        #
+        # Medido: subirlo alarga la frase hasta un 25% y mueve poco el tono.
+        # Piper es un motor rapido y plano por diseño; lo que de verdad cambia
+        # la entonacion es la puntuacion del texto, no estos numeros.
+        self.expresividad = expresividad
         self._voice = PiperVoice.load(
             ruta_voz(voz, carpeta, bajar_si_falta),
             espeak_data_dir=datos_espeak(),
@@ -97,6 +105,10 @@ class MotorTTS:
         # inverso de "velocidad".
         factor = max(self.velocidad_base * velocidad, 0.1)
         cfg = SynthesisConfig(length_scale=1.0 / factor, normalize_audio=True)
+        if self.expresividad is not None:
+            e = max(0.0, min(self.expresividad, 1.5))
+            cfg.noise_scale = 0.667 * e
+            cfg.noise_w_scale = 0.8 * e
 
         trozos = [
             trozo.audio_float_array

@@ -89,6 +89,11 @@ salidas:
     velocidad: 1.0                 # 1.0 normal, <1.0 mas lento
     ganancia: 0.7                  # 0..1. La entrada del T130 es de MICROFONO:
                                    # si satura, bajar esto (ver README).
+    # Variabilidad de la voz. Dejar sin definir usa los valores propios de la
+    # voz, que es lo recomendado. Subirlo alarga las frases hasta un 25% y
+    # mueve poco el tono: lo que de verdad define la entonacion es la
+    # puntuacion del texto, que el traductor ya decide segun el sentido.
+    # expresividad: 1.0
 
   # Descomentar para un segundo idioma por el canal derecho:
   # - idioma: "pt"

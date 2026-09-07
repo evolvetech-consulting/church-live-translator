@@ -54,6 +54,7 @@ class Salida:
     canal: int = 0
     velocidad: float = 1.0
     ganancia: float = 0.7
+    expresividad: float | None = None
 
 
 @dataclass

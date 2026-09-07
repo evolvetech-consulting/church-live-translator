@@ -69,7 +69,8 @@ class Pipeline:
 
         log.info("Cargando voces...")
         self.motores = {
-            s.idioma: MotorTTS(s.voz, s.velocidad) for s in cfg.salidas
+            s.idioma: MotorTTS(s.voz, s.velocidad, expresividad=s.expresividad)
+            for s in cfg.salidas
         }
         self.ruteador = Ruteador(cfg.salidas)
         # Se guarda para poder volver al microfono despues de reproducir un
@@ -366,7 +367,8 @@ class Pipeline:
         salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
         # Se arma el motor nuevo antes de soltar el viejo: si la voz no existe
         # o falla la descarga, el canal sigue funcionando con la de antes.
-        motor = MotorTTS(voz, salida.velocidad, bajar_si_falta=True)
+        motor = MotorTTS(voz, salida.velocidad, bajar_si_falta=True,
+                         expresividad=salida.expresividad)
         self.motores[idioma] = motor
         salida.voz = voz
         log.info("Voz de %s cambiada a %s", idioma, voz)
