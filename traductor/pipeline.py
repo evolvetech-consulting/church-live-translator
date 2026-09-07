@@ -72,6 +72,9 @@ class Pipeline:
             s.idioma: MotorTTS(s.voz, s.velocidad) for s in cfg.salidas
         }
         self.ruteador = Ruteador(cfg.salidas)
+        # Se guarda para poder volver al microfono despues de reproducir un
+        # archivo: FuenteArchivo pisa cfg.entrada.dispositivo con su nombre.
+        self._entrada_previa = cfg.entrada.dispositivo
         if archivo:
             from .fuente import FuenteArchivo
 
@@ -254,6 +257,7 @@ class Pipeline:
 
     def cambiar_entrada(self, dispositivo: str | None, canal: int = 0) -> None:
         self.captura.cambiar_dispositivo(dispositivo, canal)
+        self._entrada_previa = dispositivo
         log.info("Entrada cambiada a %s (canal %d)", dispositivo or "por defecto", canal)
 
     def cambiar_salida(self, idioma: str, dispositivo: str | None, canal: int,
@@ -261,6 +265,45 @@ class Pipeline:
         self.ruteador.reconfigurar(idioma, dispositivo, canal, ganancia)
         log.info("Salida de %s a %s (canal %d)", idioma,
                  dispositivo or "por defecto", canal)
+
+    def cambiar_fuente(self, origen: str | None = None, desde=None,
+                       velocidad: float = 1.0) -> str:
+        """Cambia de donde viene el audio, sin cortar el resto del pipeline.
+
+        `origen` None vuelve al microfono; si no, es la ruta de un archivo o
+        un enlace de YouTube. Los modelos siguen cargados: solo se reemplaza
+        la fuente, que expone la misma interfaz en los dos casos.
+        """
+        anterior = self.captura
+        anterior.detener()
+
+        try:
+            if origen:
+                from .fuente import FuenteArchivo, segundos_de
+
+                nueva = FuenteArchivo(
+                    origen, self.cfg.entrada, self.cfg.vad, self._al_detectar_frase,
+                    velocidad, desde=segundos_de(desde) if desde else None,
+                )
+            else:
+                self.cfg.entrada.dispositivo = self._entrada_previa
+                nueva = CapturaAudio(
+                    self.cfg.entrada, self.cfg.vad, self._al_detectar_frase
+                )
+            nueva.iniciar()
+        except Exception:
+            # Si la fuente nueva no sirve, se vuelve al microfono en vez de
+            # quedarse sin entrada en medio de un culto.
+            self.cfg.entrada.dispositivo = self._entrada_previa
+            self.captura = CapturaAudio(
+                self.cfg.entrada, self.cfg.vad, self._al_detectar_frase
+            )
+            self.captura.iniciar()
+            raise
+
+        self.captura = nueva
+        log.info("Fuente de audio: %s", self.cfg.entrada.dispositivo or "micrófono")
+        return self.cfg.entrada.dispositivo or ""
 
     def pausar(self, pausado: bool = True) -> bool:
         """Corta o reanuda la traduccion sin tocar el resto.

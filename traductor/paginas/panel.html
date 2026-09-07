@@ -112,6 +112,21 @@
   .field>label{display:block;font-size:11.5px;color:var(--tx2);margin-bottom:5px}
   .row2{display:grid;grid-template-columns:1fr 128px;gap:8px}
   .full{width:100%}
+  input[type=text]{background:var(--f2);color:var(--tx);border:1px solid var(--bd);
+    border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px;width:100%}
+  input[type=text]:focus{outline:none;border-color:var(--az)}
+  input[type=text]::placeholder{color:var(--tx3)}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--f2);
+    border:1px solid var(--bd);border-radius:8px;padding:3px;margin-bottom:12px}
+  .tabs button{background:transparent;border:0;border-radius:6px;padding:6px 8px;
+    font-size:12.5px;color:var(--tx2)}
+  .tabs button[aria-selected=true]{background:var(--bd2);color:var(--tx);font-weight:600}
+  .row3{display:grid;grid-template-columns:1fr 96px;gap:8px}
+  .chip-src{display:none;align-items:center;gap:7px;font-size:11.5px;
+    color:var(--tx2);background:var(--f2);border:1px solid var(--bd);
+    border-radius:7px;padding:7px 10px;margin-bottom:10px}
+  .chip-src.on{display:flex}
+  .chip-src b{color:var(--tx);font-weight:600}
 
   details.cfg{border-top:1px solid var(--bd);margin-top:2px}
   details.cfg:first-of-type{border-top:0}
@@ -201,6 +216,10 @@
     <div class="card">
       <h2>Entrada — aux send del mixer</h2>
       <div class="body">
+        <div class="chip-src" id="src-chip">
+          <span id="src-name"></span>
+          <button id="src-stop" style="margin-left:auto;padding:4px 10px">Volver al micrófono</button>
+        </div>
         <div class="meter">
           <div class="fill" id="in-fill"></div><div class="peak" id="in-peak"></div>
           <div class="ticks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -243,9 +262,40 @@
             una sola placa alcanza para dos idiomas. Con un solo idioma, da
             igual cuál elijas.
           </div>
-          <div class="field">
-            <label>Entrada de audio</label>
-            <div class="row2"><select id="in-dev"></select><select id="in-ch"></select></div>
+          <div class="tabs" role="tablist">
+            <button id="tab-mic" aria-selected="true">Micrófono / placa</button>
+            <button id="tab-file" aria-selected="false">Video o enlace</button>
+          </div>
+
+          <div id="pane-mic">
+            <div class="field">
+              <label>Entrada de audio</label>
+              <div class="row2"><select id="in-dev"></select><select id="in-ch"></select></div>
+            </div>
+          </div>
+
+          <div id="pane-file" hidden>
+            <div class="field">
+              <label>Enlace de YouTube o ruta de un archivo</label>
+              <input type="text" id="src-url" placeholder="https://youtu.be/... o /ruta/sermon.mp4">
+            </div>
+            <div class="field">
+              <label>Empezar en · velocidad</label>
+              <div class="row3">
+                <input type="text" id="src-from" placeholder="23:38 (opcional)">
+                <select id="src-speed">
+                  <option value="1">1x real</option>
+                  <option value="2">2x</option>
+                  <option value="4">4x</option>
+                </select>
+              </div>
+            </div>
+            <button class="full" id="src-play">Reproducir por el traductor</button>
+            <div class="hint" style="margin-top:7px">
+              Ensayo general: el sermón entra al pipeline y la traducción sale
+              por el transmisor, igual que en un culto. Con un enlace no se
+              descarga el video. Para probar niveles usá velocidad real.
+            </div>
           </div>
           <div id="out-cfg"></div>
           <div class="msg" id="cfg-msg"></div>
@@ -344,6 +394,13 @@ function pintarEstado(e){
   const offline = e.modo !== 'claude';
   $('p-mode').classList.toggle('oculto', !offline);
   if (offline) $('t-mode').textContent = 'Traduciendo offline (Whisper)';
+
+  const f = e.fuente || {};
+  $('src-chip').classList.toggle('on', !!f.archivo);
+  if(f.archivo)
+    $('src-name').innerHTML = f.terminado
+      ? '<b>' + esc(f.nombre) + '</b> — terminó'
+      : 'Reproduciendo <b>' + esc(f.nombre) + '</b>';
 
   document.body.classList.toggle('pausado', !!e.pausado);
   const b = $('btn-pausa');
@@ -532,6 +589,38 @@ async function aplicarEntrada(){
     msg('Entrada cambiada. Hablá y mirá el medidor.', false);
   }catch(e){ msg(e.message, true); cargarDispositivos(); }
 }
+/* ---------- fuente de audio ---------- */
+function pestana(archivo){
+  $('tab-mic').setAttribute('aria-selected', !archivo);
+  $('tab-file').setAttribute('aria-selected', archivo);
+  $('pane-mic').hidden = archivo;
+  $('pane-file').hidden = !archivo;
+}
+$('tab-mic').onclick = () => pestana(false);
+$('tab-file').onclick = () => pestana(true);
+
+async function ponerFuente(origen, boton){
+  if(boton){ boton.disabled = true; boton.dataset.t = boton.textContent;
+             boton.textContent = 'Preparando…'; }
+  try{
+    await enviar('/config/fuente', {
+      origen,
+      desde: origen ? $('src-from').value.trim() : '',
+      velocidad: origen ? +$('src-speed').value : 1
+    });
+    msg(origen ? 'Reproduciendo. La traducción sale por el transmisor.'
+               : 'Volviste al micrófono.', false);
+  }catch(e){ msg(e.message, true); }
+  if(boton){ boton.disabled = false; boton.textContent = boton.dataset.t; }
+}
+
+$('src-play').onclick = e => {
+  const u = $('src-url').value.trim();
+  if(!u) return msg('Pegá un enlace de YouTube o la ruta de un archivo.', true);
+  ponerFuente(u, e.target);
+};
+$('src-stop').onclick = e => ponerFuente(null, e.target);
+
 $('in-dev').onchange = () => {
   opcionesCanal($('in-ch'), canalesDe($('in-dev').value, devs.entradas), 0);
   aplicarEntrada();

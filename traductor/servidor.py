@@ -84,6 +84,7 @@ class ServidorWeb:
             "modo": "claude",
             "frases": 0,
             "pausado": False,
+            "fuente": {"archivo": False, "nombre": "", "terminado": False},
             "canales": {},
             "promedios": {},
         }
@@ -96,6 +97,11 @@ class ServidorWeb:
         estado["modo"] = "offline" if p.traductor.usando_fallback else "claude"
         estado["frases"] = len(p.eventos)
         estado["pausado"] = p.pausado
+        estado["fuente"] = {
+            "archivo": hasattr(p.captura, "url"),
+            "nombre": self.cfg.entrada.dispositivo or "micrófono",
+            "terminado": bool(getattr(p.captura, "terminado", False)),
+        }
         estado["canales"] = {
             s.idioma: {
                 "nivel": round(p.ruteador.picos.get(s.idioma, 0.0), 4),
@@ -228,6 +234,13 @@ class ServidorWeb:
                             int(datos.get("canal", 0)),
                             float(datos["ganancia"]) if "ganancia" in datos else None,
                         )
+                    elif ruta == "/config/fuente":
+                        nombre = srv.pipeline.cambiar_fuente(
+                            datos.get("origen") or None,
+                            datos.get("desde") or None,
+                            float(datos.get("velocidad", 1.0)),
+                        )
+                        return self._json({"ok": True, "fuente": nombre})
                     elif ruta == "/pausa":
                         return self._json(
                             {"ok": True, "pausado": srv.pipeline.pausar(
