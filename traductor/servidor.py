@@ -79,8 +79,11 @@ class ServidorWeb:
             "dispositivo": self.cfg.entrada.dispositivo or "por defecto",
             "idiomas": self._idiomas(),
             "entrada": 0.0,
+            "entrada_cruda": 0.0,
+            "ganancia_entrada": round(self.cfg.entrada.ganancia, 2),
             "modo": "claude",
             "frases": 0,
+            "pausado": False,
             "canales": {},
             "promedios": {},
         }
@@ -88,12 +91,17 @@ class ServidorWeb:
             return estado
 
         estado["entrada"] = round(p.captura.pico, 4)
+        estado["entrada_cruda"] = round(p.captura.pico_crudo, 4)
+        estado["ganancia_entrada"] = round(self.cfg.entrada.ganancia, 2)
         estado["modo"] = "offline" if p.traductor.usando_fallback else "claude"
         estado["frases"] = len(p.eventos)
+        estado["pausado"] = p.pausado
         estado["canales"] = {
             s.idioma: {
                 "nivel": round(p.ruteador.picos.get(s.idioma, 0.0), 4),
                 "atraso": round(p.ruteador.pendiente_s(s.idioma), 2),
+                "ganancia": round(s.ganancia, 2),
+                "voz": s.voz,
                 "umbral_medio": lat.umbral_aceleracion_s,
                 "umbral_alto": lat.umbral_maximo_s,
             }
@@ -125,7 +133,7 @@ class ServidorWeb:
 
         actual_salidas = {
             s.idioma: {"dispositivo": s.dispositivo, "canal": s.canal,
-                       "ganancia": s.ganancia}
+                       "ganancia": s.ganancia, "voz": s.voz}
             for s in self.cfg.salidas
         }
         return {
@@ -220,6 +228,21 @@ class ServidorWeb:
                             int(datos.get("canal", 0)),
                             float(datos["ganancia"]) if "ganancia" in datos else None,
                         )
+                    elif ruta == "/pausa":
+                        return self._json(
+                            {"ok": True, "pausado": srv.pipeline.pausar(
+                                bool(datos.get("pausado", True)))}
+                        )
+                    elif ruta == "/config/voz":
+                        return self._json(
+                            {"ok": True, "voz": srv.pipeline.cambiar_voz(
+                                datos["idioma"], datos["voz"])}
+                        )
+                    elif ruta == "/config/nivel":
+                        v = srv.pipeline.cambiar_nivel(
+                            datos["destino"], datos["ganancia"]
+                        )
+                        return self._json({"ok": True, "ganancia": v})
                     elif ruta == "/probar":
                         dur = srv.pipeline.probar_canal(datos["idioma"])
                         return self._json({"ok": True, "duracion": round(dur, 1)})
@@ -248,6 +271,11 @@ class ServidorWeb:
                     return self._json(srv._estado())
                 if ruta == "/dispositivos":
                     return self._json(srv._dispositivos())
+                if ruta == "/voces":
+                    from .voces import para_idioma
+
+                    idioma = (self.path.split("idioma=") + [""])[1].split("&")[0]
+                    return self._json(para_idioma(idioma or "en"))
                 if ruta == "/subtitulos":
                     return self._enviar(srv._pagina("subtitulos.html"))
                 if ruta == "/":

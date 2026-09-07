@@ -13,6 +13,7 @@ class Entrada:
     dispositivo: str | None = None
     frecuencia: int = 48000
     canal: int = 0
+    ganancia: float = 1.0
 
 
 @dataclass

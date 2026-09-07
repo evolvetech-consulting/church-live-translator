@@ -297,7 +297,11 @@ class CapturaAudio:
             if cfg_entrada.frecuencia != FREC_INTERNA
             else None
         )
-        # Nivel de pico reciente, para el medidor en pantalla.
+        # Picos recientes para los medidores. Se llevan los dos: el crudo dice
+        # si esta entrando señal del mixer, y el corregido es lo que realmente
+        # ve el detector de voz. Si el crudo se mueve y el corregido no, el
+        # problema es la ganancia y no el cableado.
+        self.pico_crudo = 0.0
         self.pico = 0.0
 
     def _callback(self, indata, frames, tiempo, estado):
@@ -318,6 +322,9 @@ class CapturaAudio:
             if bloque is None:
                 break
 
+            self.pico_crudo = max(float(np.abs(bloque).max()), self.pico_crudo * 0.85)
+            if self.cfg.ganancia != 1.0:
+                bloque = bloque * self.cfg.ganancia
             self.pico = max(float(np.abs(bloque).max()), self.pico * 0.85)
 
             if self._resampler is not None:

@@ -3,367 +3,570 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Panel del traductor</title>
+<title>Traductor del culto</title>
 <style>
   :root{
-    --fondo:#0e1116; --panel:#161a22; --borde:#242a35; --texto:#e6e9ef;
-    --tenue:#8b93a3; --verde:#3fb950; --amarillo:#d29922; --rojo:#f85149;
-    --azul:#4b93f7; color-scheme:dark;
+    --f0:#0d1017; --f1:#151922; --f2:#1c212c; --bd:#252c3a; --bd2:#323a4a;
+    --tx:#e8ecf2; --tx2:#9aa4b6; --tx3:#68718360;
+    --ok:#3fb950; --warn:#d99a2b; --bad:#f0564a; --az:#4d8ef7;
+    --r:10px; color-scheme:dark;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--fondo);color:var(--texto);
-       font:14px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif}
-  header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-         padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--borde);
-         position:sticky;top:0;z-index:10}
-  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
-  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;
-        padding:4px 11px;border-radius:999px;border:1px solid var(--borde);
-        background:#1c2029;white-space:nowrap}
-  .punto{width:7px;height:7px;border-radius:50%;background:var(--tenue);flex:none}
-  .punto.on{background:var(--verde);box-shadow:0 0 7px var(--verde)}
-  .punto.warn{background:var(--amarillo);box-shadow:0 0 7px var(--amarillo)}
-  .punto.off{background:var(--rojo)}
-  .crece{margin-left:auto}
-  main{padding:18px 20px;max-width:1180px;margin:0 auto;
-       display:grid;gap:16px;grid-template-columns:320px 1fr}
-  @media(max-width:860px){main{grid-template-columns:1fr}}
-  .caja{background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:14px 16px}
-  .caja h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;
-           color:var(--tenue);margin:0 0 12px;font-weight:600}
-  .medidor{height:9px;background:#0b0e13;border-radius:5px;overflow:hidden;
-           border:1px solid var(--borde)}
-  .medidor i{display:block;height:100%;width:0;background:var(--verde);
-             transition:width .08s linear}
-  .medidor i.warn{background:var(--amarillo)} .medidor i.hot{background:var(--rojo)}
-  .fila{display:flex;justify-content:space-between;align-items:baseline;
-        gap:10px;margin:11px 0 5px;font-size:12px;color:var(--tenue)}
-  .fila b{color:var(--texto);font-weight:600;font-variant-numeric:tabular-nums}
-  .canal{border-top:1px solid var(--borde);padding-top:13px;margin-top:13px}
-  .canal:first-of-type{border-top:0;padding-top:0;margin-top:0}
-  .canal .cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
-  .canal .nom{font-weight:600}
-  .canal .ruta{font-size:11px;color:var(--tenue);font-variant-numeric:tabular-nums}
-  .atraso{font-size:11px;font-variant-numeric:tabular-nums;padding:1px 7px;
-          border-radius:4px;background:#1c2029}
-  .atraso.warn{color:var(--amarillo)} .atraso.hot{color:var(--rojo);background:#2a1517}
-  #feed{max-height:calc(100vh - 190px);overflow-y:auto;scroll-behavior:smooth}
-  .frase{border-bottom:1px solid var(--borde);padding:11px 2px}
-  .frase:last-child{border-bottom:0}
-  .frase .meta{font-size:11px;color:var(--tenue);font-variant-numeric:tabular-nums;
-               display:flex;gap:11px;margin-bottom:4px}
-  .frase .es{font-size:14.5px}
-  .frase .tr{font-size:14px;color:#a9b3c4;margin-top:4px;padding-left:11px;
-             border-left:2px solid var(--azul)}
-  .frase .tr .cod{color:var(--azul);font-size:11px;text-transform:uppercase;
-                  margin-right:7px;font-weight:600}
-  .frase.off .tr{border-left-color:var(--amarillo)}
-  .frase.off .tr .cod{color:var(--amarillo)}
-  #vacio{color:var(--tenue);text-align:center;padding:50px 0}
-  a{color:var(--azul)}
-  select,input[type=range]{background:#0b0e13;color:var(--texto);
-      border:1px solid var(--borde);border-radius:6px;padding:5px 7px;
-      font:inherit;font-size:12.5px;width:100%}
-  select:focus{outline:1px solid var(--azul)}
-  .campo{margin:9px 0}
-  .campo label{display:block;font-size:11px;color:var(--tenue);margin-bottom:4px}
-  .par{display:grid;grid-template-columns:1fr 86px;gap:7px}
-  button{background:#242833;color:var(--texto);border:1px solid var(--borde);
-      border-radius:6px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer}
-  button:hover{border-color:var(--azul)}
-  button:disabled{opacity:.5;cursor:default}
-  button.probar{width:100%;margin-top:8px}
-  .aviso{font-size:11.5px;border-radius:6px;padding:7px 9px;margin-top:9px;display:none}
-  .aviso.err{display:block;background:#2a1517;color:#ffa198;border:1px solid #5a2226}
-  .aviso.ok{display:block;background:#12261a;color:#7ee787;border:1px solid #1f4a2e}
-  details>summary{cursor:pointer;color:var(--tenue);font-size:11px;
-      text-transform:uppercase;letter-spacing:.9px;font-weight:600;
-      list-style:none;user-select:none}
-  details>summary::-webkit-details-marker{display:none}
-  details>summary::before{content:"▸ ";font-size:10px}
-  details[open]>summary::before{content:"▾ "}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--f0);color:var(--tx);
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  h1,h2{margin:0;font-weight:600}
+
+  /* ---------- barra superior ---------- */
+  .top{position:sticky;top:0;z-index:20;background:#12161ee6;
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);
+    padding:10px 20px;display:grid;grid-template-columns:1fr auto 1fr;
+    align-items:center;gap:12px}
+  .top h1{font-size:14.5px;letter-spacing:-.1px}
+  .top .der{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  @media(max-width:700px){
+    .top{grid-template-columns:1fr;justify-items:center;text-align:center}
+    .top .der{justify-content:center}
+  }
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;
+    padding:5px 11px;border-radius:99px;background:var(--f2);
+    border:1px solid var(--bd);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--tx2);flex:none}
+  .dot.ok{background:var(--ok);box-shadow:0 0 0 3px #3fb95024}
+  .dot.warn{background:var(--warn);box-shadow:0 0 0 3px #d99a2b24}
+  .dot.bad{background:var(--bad);box-shadow:0 0 0 3px #f0564a24}
+  .grow{margin-left:auto}
+  .lnk{color:var(--tx2);text-decoration:none;font-size:12px;
+    padding:5px 11px;border-radius:99px;border:1px solid var(--bd)}
+  .lnk:hover{color:var(--tx);border-color:var(--bd2)}
+
+  /* ---------- estructura ---------- */
+  main{display:grid;grid-template-columns:335px minmax(0,1fr);gap:14px;
+    padding:14px 20px 20px;max-width:1340px;margin:0 auto;align-items:start}
+  @media(max-width:900px){main{grid-template-columns:1fr;padding:12px}}
+  .col{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .card{background:var(--f1);border:1px solid var(--bd);border-radius:var(--r)}
+  .card>h2{font-size:11px;text-transform:uppercase;letter-spacing:.85px;
+    color:var(--tx2);padding:13px 15px 0}
+  .card>.body{padding:12px 15px 14px}
+
+  /* ---------- medidores ---------- */
+  .meter{position:relative;height:26px;background:#080a0f;border-radius:6px;
+    overflow:hidden;border:1px solid var(--bd)}
+  .meter .fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:5px 0 0 5px;
+    background:linear-gradient(90deg,#2f9e46,#4cc95f 62%,#d99a2b 82%,#f0564a);
+    transition:width .07s linear}
+  .meter .peak{position:absolute;top:2px;bottom:2px;width:2px;background:#fff;
+    opacity:.85;transition:left .18s ease-out}
+  .meter .ticks{position:absolute;inset:0;display:flex;pointer-events:none}
+  .meter .ticks i{flex:1;border-right:1px solid #ffffff0d}
+  .meter .lab{position:absolute;right:7px;top:50%;transform:translateY(-50%);
+    font-size:10.5px;color:#fff;text-shadow:0 1px 3px #000c;
+    font-variant-numeric:tabular-nums;letter-spacing:.2px}
+  .meter.sm{height:16px}
+  .meter.sm .lab{font-size:9.5px}
+  .hint{font-size:11.5px;color:var(--tx2);margin-top:7px;line-height:1.45}
+  .hint b{color:var(--tx);font-weight:600}
+
+  /* ---------- deslizadores ---------- */
+  .slider{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+    margin-top:10px}
+  .slider .val{font-size:11.5px;color:var(--tx2);font-variant-numeric:tabular-nums;
+    min-width:52px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:20px;
+    background:transparent;cursor:pointer;margin:0}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+    background:linear-gradient(90deg,var(--az) var(--p,50%),var(--bd2) var(--p,50%))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;
+    height:15px;border-radius:50%;background:#fff;margin-top:-5.5px;
+    box-shadow:0 1px 4px #0009}
+  input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--bd2)}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border:0;
+    border-radius:50%;background:#fff}
+
+  /* ---------- canales ---------- */
+  .ch{padding:13px 0;border-top:1px solid var(--bd)}
+  .ch:first-child{border-top:0;padding-top:2px}
+  .ch .hd{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .ch .nm{font-weight:600;font-size:13.5px}
+  .ch .rt{font-size:11px;color:var(--tx2);margin-left:auto;
+    background:var(--f2);padding:2px 8px;border-radius:5px;
+    border:1px solid var(--bd);white-space:nowrap}
+  .lag{font-size:11px;font-variant-numeric:tabular-nums;padding:2px 8px;
+    border-radius:5px;background:var(--f2);border:1px solid var(--bd);color:var(--ok)}
+  .lag.warn{color:var(--warn);border-color:#d99a2b40}
+  .lag.bad{color:var(--bad);border-color:#f0564a40;background:#2a1416}
+
+  /* ---------- controles ---------- */
+  select{background:var(--f2);color:var(--tx);border:1px solid var(--bd);
+    border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px;width:100%;
+    cursor:pointer}
+  select:hover{border-color:var(--bd2)}
+  select:focus{outline:none;border-color:var(--az)}
+  button{background:var(--f2);color:var(--tx);border:1px solid var(--bd);
+    border-radius:7px;padding:7px 13px;font:inherit;font-size:12.5px;
+    cursor:pointer;transition:border-color .12s,background .12s}
+  button:hover:not(:disabled){border-color:var(--az);background:#20283a}
+  button:disabled{opacity:.45;cursor:default}
+  .field{margin-bottom:12px}
+  .field>label{display:block;font-size:11.5px;color:var(--tx2);margin-bottom:5px}
+  .row2{display:grid;grid-template-columns:1fr 128px;gap:8px}
+  .full{width:100%}
+
+  details.cfg{border-top:1px solid var(--bd);margin-top:2px}
+  details.cfg:first-of-type{border-top:0}
+  .stats+.stats{margin-top:1px}
+  details.cfg>summary{cursor:pointer;list-style:none;padding:12px 0 2px;
+    font-size:11px;text-transform:uppercase;letter-spacing:.85px;
+    color:var(--tx2);font-weight:600;user-select:none;display:flex;
+    align-items:center;gap:6px}
+  details.cfg>summary::-webkit-details-marker{display:none}
+  details.cfg>summary::before{content:"";width:0;height:0;
+    border:4px solid transparent;border-left-color:var(--tx2);
+    transition:transform .15s;transform-origin:2px 4px}
+  details.cfg[open]>summary::before{transform:rotate(90deg)}
+  .note{font-size:11.5px;color:var(--tx2);background:var(--f2);
+    border:1px solid var(--bd);border-left:2px solid var(--az);
+    border-radius:0 6px 6px 0;padding:8px 10px;margin:2px 0 13px;line-height:1.5}
+  .msg{font-size:12px;border-radius:7px;padding:8px 11px;margin-top:11px;display:none}
+  .msg.err{display:block;background:#2a1416;color:#ff9c92;border:1px solid #5c2429}
+  .msg.ok{display:block;background:#10241a;color:#7ee787;border:1px solid #1d4630}
+
+  /* ---------- transcripcion ---------- */
+  #feed{max-height:calc(100vh - 152px);overflow-y:auto;padding:4px 15px 14px;
+    scrollbar-width:thin;scrollbar-color:var(--bd2) transparent}
+  #feed::-webkit-scrollbar{width:8px}
+  #feed::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:4px}
+  .ph{padding:13px 0;border-bottom:1px solid var(--bd)}
+  .ph:last-child{border-bottom:0}
+  .ph .meta{display:flex;gap:9px;align-items:center;font-size:10.5px;
+    color:var(--tx3);font-variant-numeric:tabular-nums;margin-bottom:5px}
+  .ph .meta .tag{background:var(--f2);border:1px solid var(--bd);
+    padding:1px 6px;border-radius:4px;color:var(--tx2)}
+  .ph .src{font-size:14.5px;color:var(--tx);line-height:1.5}
+  .ph .dst{font-size:14.5px;color:#aeb8c9;margin-top:6px;padding-left:11px;
+    border-left:2px solid var(--az);line-height:1.5}
+  .ph .dst .cd{color:var(--az);font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;margin-right:7px}
+  .ph.off .dst{border-left-color:var(--warn)}
+  .ph.off .dst .cd{color:var(--warn)}
+  .ph:last-child .src{color:#fff}
+  #empty{text-align:center;color:var(--tx2);padding:64px 20px;font-size:13.5px}
+  #empty span{display:block;font-size:12px;color:var(--tx3);margin-top:7px}
+
+  #btn-pausa{font-weight:600;font-size:13.5px;padding:9px 26px;border-radius:99px;
+    background:#1f7a33;border-color:#2b9443;color:#fff;min-width:210px;
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    transition:background .15s,border-color .15s}
+  #btn-pausa::before{content:"";width:9px;height:9px;border-radius:2px;
+    background:#fff;opacity:.9}
+  #btn-pausa:not(.off)::before{border-radius:0;
+    clip-path:polygon(0 0,100% 0,100% 35%,0 35%,0 65%,100% 65%,100% 100%,0 100%)}
+  #btn-pausa.off::before{border-radius:0;clip-path:polygon(15% 0,100% 50%,15% 100%)}
+  #btn-pausa:hover:not(:disabled){background:#248c3b;border-color:#35ab52}
+  #btn-pausa.off{background:#8c2f28;border-color:#a83a32}
+  #btn-pausa.off:hover:not(:disabled){background:#a3382f;border-color:#c2453b}
+  /* Los avisos de estado solo aparecen cuando hay algo que mirar: mientras
+     todo anda bien, la barra queda limpia. */
+  .pill.oculto{display:none}
+  body.pausado .meter .fill{filter:grayscale(.75);opacity:.55}
+  #banda{display:none;background:#3a2a10;border-bottom:1px solid #5c441a;
+    color:#e8bf70;font-size:12.5px;padding:8px 20px;text-align:center}
+  body.pausado #banda{display:block}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--bd);border-radius:8px;overflow:hidden}
+  .stats div{background:var(--f1);padding:9px 10px;text-align:center}
+  .stats b{display:block;font-size:15px;font-variant-numeric:tabular-nums;
+    letter-spacing:-.3px}
+  .stats span{font-size:10px;color:var(--tx2);text-transform:uppercase;
+    letter-spacing:.5px}
 </style>
 </head>
 <body>
-<header>
+
+<div class="top">
   <h1>Traductor del culto</h1>
-  <span class="chip"><i class="punto" id="p-con"></i><span id="con">conectando</span></span>
-  <span class="chip"><i class="punto" id="p-modo"></i><span id="modo">-</span></span>
-  <span class="chip" id="tiempo">00:00</span>
-  <span class="chip"><b id="n-frases">0</b>&nbsp;frases</span>
-  <span class="chip crece"><a href="/subtitulos" target="_blank">Vista congregación →</a></span>
-</header>
+  <button id="btn-pausa">Pausar traducción</button>
+  <div class="der">
+    <span class="pill oculto" id="p-con"><i class="dot bad"></i><span id="t-con"></span></span>
+    <span class="pill oculto" id="p-mode"><i class="dot warn"></i><span id="t-mode"></span></span>
+    <a class="lnk" href="/subtitulos" target="_blank">Vista congregación ↗</a>
+  </div>
+</div>
+<div id="banda">Traducción pausada — el audio entra pero no se procesa. Nadie escucha nada por los receptores.</div>
 
 <main>
-  <div>
-    <div class="caja">
-      <h2>Entrada</h2>
-      <div class="medidor"><i id="m-ent"></i></div>
-      <div class="fila"><span id="dispositivo">-</span><b id="v-ent">0%</b></div>
-      <div class="fila" style="color:var(--tenue);font-size:11px;border-top:1px solid var(--borde);padding-top:9px">
-        <span>Si esto no se mueve cuando alguien habla, revisá el aux send del mixer.</span>
+  <div class="col">
+
+    <div class="card">
+      <h2>Entrada — aux send del mixer</h2>
+      <div class="body">
+        <div class="meter">
+          <div class="fill" id="in-fill"></div><div class="peak" id="in-peak"></div>
+          <div class="ticks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="lab" id="in-lab">—</div>
+        </div>
+        <div class="slider">
+          <input type="range" id="in-gain" min="0" max="4" step="0.05" value="1">
+          <span class="val" id="in-gain-v">×1.00</span>
+        </div>
+        <div class="hint" id="in-hint">Si no se mueve cuando alguien habla, revisá el cable del mixer.</div>
       </div>
     </div>
-    <div class="caja" style="margin-top:16px">
+
+    <div class="card">
       <h2>Canales de salida</h2>
-      <div id="canales"></div>
-    </div>
-    <div class="caja" style="margin-top:16px">
-      <details id="conf">
-        <summary>Configurar audio</summary>
-        <div style="margin-top:13px">
-          <div class="campo">
-            <label>Entrada — el aux send del mixer</label>
-            <div class="par">
-              <select id="ent-disp"></select>
-              <select id="ent-canal"></select>
-            </div>
-          </div>
-          <div id="conf-salidas"></div>
-          <div class="aviso" id="conf-aviso"></div>
-        </div>
-      </details>
+      <div class="body" id="channels"></div>
     </div>
 
-    <div class="caja" style="margin-top:16px">
-      <h2>Proceso</h2>
-      <div class="fila"><span>whisper</span><b id="t-stt">-</b></div>
-      <div class="fila"><span>traducción</span><b id="t-trad">-</b></div>
-      <div class="fila"><span>voz</span><b id="t-tts">-</b></div>
-      <div class="fila" style="border-top:1px solid var(--borde);padding-top:9px">
-        <span>total por frase</span><b id="t-total">-</b></div>
+    <div class="card">
+      <div class="body" style="padding-top:4px">
+        <details class="cfg" id="diag">
+          <summary>Diagnóstico</summary>
+          <div class="stats" style="margin-bottom:11px">
+            <div><b id="s-stt">—</b><span>whisper</span></div>
+            <div><b id="s-trad">—</b><span>traducir</span></div>
+            <div><b id="s-tts">—</b><span>voz</span></div>
+            <div><b id="s-tot">—</b><span>total</span></div>
+          </div>
+          <div class="stats">
+            <div><b id="t-time">00:00</b><span>en marcha</span></div>
+            <div><b id="t-n">0</b><span>frases</span></div>
+          </div>
+        </details>
+
+        <details class="cfg" id="cfg">
+          <summary>Configurar dispositivos</summary>
+          <div class="note">
+            Una salida estéreo tiene <b>dos canales independientes</b>:
+            izquierdo y derecho. Cada uno va a un transmisor distinto, así que
+            una sola placa alcanza para dos idiomas. Con un solo idioma, da
+            igual cuál elijas.
+          </div>
+          <div class="field">
+            <label>Entrada de audio</label>
+            <div class="row2"><select id="in-dev"></select><select id="in-ch"></select></div>
+          </div>
+          <div id="out-cfg"></div>
+          <div class="msg" id="cfg-msg"></div>
+        </details>
+      </div>
     </div>
   </div>
 
-  <div class="caja">
+  <div class="card">
     <h2>Transcripción y traducción</h2>
-    <div id="feed"><div id="vacio">Esperando audio...</div></div>
+    <div id="feed">
+      <div id="empty">Esperando audio…<span>Hablá al micrófono y en unos segundos aparece acá.</span></div>
+    </div>
   </div>
 </main>
 
 <script>
-const $ = id => document.getElementById(id);
-const frases = new Map();
-let idiomas = [], pegadoAbajo = true;
+const $ = i => document.getElementById(i);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let idiomas = [], devs = null, stick = true, arrastrando = null;
+const picos = {};
 
-$('feed').addEventListener('scroll', e => {
-  const el = e.target;
-  pegadoAbajo = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-});
+/* Los medidores usan escala logaritmica: en lineal, la voz normal apenas mueve
+   la barra y no se distingue "bajo" de "correcto". */
+const escala = v => v <= 0 ? 0 : Math.max(0, Math.min(1, (20*Math.log10(v) + 60) / 60));
+const dB = v => v <= 0.0005 ? '—' : (20*Math.log10(v)).toFixed(0) + ' dB';
 
-function nivel(barra, valor){
-  barra.style.width = Math.min(valor * 100, 100) + '%';
-  barra.className = valor > .95 ? 'hot' : valor > .7 ? 'warn' : '';
+function medidor(pre, v){
+  const p = escala(v);
+  $(pre+'-fill').style.width = (p*100) + '%';
+  const ant = picos[pre] || 0;
+  picos[pre] = v > ant ? v : ant * 0.94;
+  $(pre+'-peak').style.left = (escala(picos[pre])*100) + '%';
+  if ($(pre+'-lab')) $(pre+'-lab').textContent = dB(v);
 }
 
-function pintarCanales(estado){
-  const cont = $('canales');
-  if (cont.children.length !== idiomas.length) {
-    cont.innerHTML = idiomas.map(l => `
-      <div class="canal" data-i="${l.idioma}">
-        <div class="cab"><span class="nom">${l.nombre}</span>
-          <span class="ruta">${l.ruta}</span></div>
-        <div class="medidor"><i></i></div>
-        <div class="fila"><span>atraso</span><span class="atraso">-</span></div>
-      </div>`).join('');
-  }
-  for (const l of idiomas) {
-    const c = cont.querySelector(`[data-i="${l.idioma}"]`);
-    const d = (estado.canales || {})[l.idioma] || {};
-    nivel(c.querySelector('.medidor i'), d.nivel || 0);
-    const a = c.querySelector('.atraso');
-    a.textContent = (d.atraso ?? 0).toFixed(1) + 's';
-    a.className = 'atraso' + (d.atraso > d.umbral_alto ? ' hot'
-                            : d.atraso > d.umbral_medio ? ' warn' : '');
-  }
+function pintarSlider(el){
+  el.style.setProperty('--p', (el.value/el.max*100) + '%');
 }
 
-function pintarFrase(f){
-  frases.set(f.seq, f);
-  let el = document.querySelector(`.frase[data-seq="${f.seq}"]`);
-  if (!el) {
-    $('vacio').style.display = 'none';
-    el = document.createElement('div');
-    el.className = 'frase';
-    el.dataset.seq = f.seq;
-    $('feed').appendChild(el);
-    while ($('feed').children.length > 200) $('feed').children[1].remove();
-  }
-  el.classList.toggle('off', !!f.offline);
-  const mm = String(Math.floor(f.t / 60)).padStart(2,'0'),
-        ss = String(Math.floor(f.t % 60)).padStart(2,'0');
-  const tiempos = f.ms_trad
-      ? `<span>${((f.ms_stt + f.ms_trad) / 1000).toFixed(1)}s</span>` : '';
-  el.innerHTML = `<div class="meta"><span>#${f.seq}</span><span>${mm}:${ss}</span>${tiempos}
-      ${f.offline ? '<span style="color:var(--amarillo)">offline</span>' : ''}</div>
-    <div class="es">${esc(f.es)}</div>` +
-    Object.entries(f.traducciones || {}).filter(([,t]) => t)
-      .map(([i,t]) => `<div class="tr"><span class="cod">${i}</span>${esc(t)}</div>`).join('');
-  if (pegadoAbajo) $('feed').scrollTop = $('feed').scrollHeight;
-}
-
-const esc = s => String(s).replace(/[&<>"]/g, c =>
-  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-function pintarEstado(e){
-  nivel($('m-ent'), e.entrada || 0);
-  $('v-ent').textContent = Math.round((e.entrada || 0) * 100) + '%';
-  $('dispositivo').textContent = e.dispositivo || '-';
-  $('n-frases').textContent = e.frases || 0;
-  const s = e.transcurrido || 0;
-  $('tiempo').textContent = String(Math.floor(s/60)).padStart(2,'0') + ':'
-                          + String(Math.floor(s%60)).padStart(2,'0');
-  $('modo').textContent = e.modo === 'claude' ? 'Claude' : 'Offline (Whisper)';
-  $('p-modo').className = 'punto ' + (e.modo === 'claude' ? 'on' : 'warn');
-  if (e.idiomas) idiomas = e.idiomas;
-  pintarCanales(e);
-  const p = e.promedios || {};
-  const ms = v => v ? (v/1000).toFixed(2) + 's' : '-';
-  $('t-stt').textContent = ms(p.stt); $('t-trad').textContent = ms(p.trad);
-  $('t-tts').textContent = ms(p.tts);
-  $('t-total').textContent = ms((p.stt||0) + (p.trad||0) + (p.tts||0));
-}
-
-// ---------- configuracion de audio en caliente ----------
-let dispositivos = null;
-
-function opciones(sel, lista, elegido, extra) {
-  sel.innerHTML = '';
-  (extra || []).forEach(o => sel.appendChild(new Option(o.t, o.v)));
-  lista.forEach(d => sel.appendChild(new Option(d.nombre, d.nombre)));
-  sel.value = elegido == null ? '' : elegido;
-  // Si lo configurado no esta conectado, lo mostramos igual para no perderlo
-  // de vista: es justo lo que hay que saber cuando algo no suena.
-  if (sel.value !== (elegido == null ? '' : elegido)) {
-    sel.appendChild(new Option(elegido + ' (no conectado)', elegido));
-    sel.value = elegido;
-  }
-}
-
-function canalesDe(nombre, lista) {
-  const d = lista.find(x => x.nombre === nombre);
-  return d ? d.canales : 2;
-}
-
-function opcionesCanal(sel, n, elegido) {
-  const nombres = ['izquierdo', 'derecho'];
-  sel.innerHTML = '';
-  for (let i = 0; i < Math.max(n, 1); i++)
-    sel.appendChild(new Option(nombres[i] || ('canal ' + i), i));
-  sel.value = Math.min(elegido, Math.max(n - 1, 0));
-}
-
-function aviso(texto, esError) {
-  const el = $('conf-aviso');
-  el.textContent = texto;
-  el.className = 'aviso ' + (esError ? 'err' : 'ok');
-  if (!esError) setTimeout(() => { el.className = 'aviso'; }, 4000);
-}
-
-async function enviar(ruta, cuerpo) {
-  const r = await fetch(ruta, {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(cuerpo)
-  });
+async function enviar(ruta, cuerpo){
+  const r = await fetch(ruta, {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(cuerpo)});
   const d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'error');
+  if(!r.ok) throw new Error(d.error || 'error');
   return d;
 }
+function msg(txt, err){
+  const e = $('cfg-msg'); e.textContent = txt; e.className = 'msg ' + (err?'err':'ok');
+  if(!err) setTimeout(()=>{ e.className='msg'; }, 4000);
+}
 
-async function cargarDispositivos() {
-  dispositivos = await (await fetch('/dispositivos')).json();
-  const a = dispositivos.actual;
-
-  opciones($('ent-disp'), dispositivos.entradas, a.entrada.dispositivo,
-           [{t: '(la del sistema)', v: ''}]);
-  opcionesCanal($('ent-canal'),
-                canalesDe(a.entrada.dispositivo, dispositivos.entradas),
-                a.entrada.canal);
-
-  $('conf-salidas').innerHTML = idiomas.map(l => `
-    <div class="campo" data-i="${l.idioma}">
-      <label>Salida ${l.nombre} — al transmisor</label>
-      <div class="par">
-        <select class="s-disp"></select>
-        <select class="s-canal"></select>
+/* ---------- canales ---------- */
+function construirCanales(){
+  $('channels').innerHTML = idiomas.map(l => `
+    <div class="ch" data-i="${l.idioma}">
+      <div class="hd">
+        <span class="nm">${esc(l.nombre)}</span>
+        <span class="lag">—</span>
+        <span class="rt">${esc(l.ruta)}</span>
       </div>
-      <button class="probar">Probar este canal</button>
+      <div class="meter sm">
+        <div class="fill" id="o${l.idioma}-fill"></div>
+        <div class="peak" id="o${l.idioma}-peak"></div>
+        <div class="lab" id="o${l.idioma}-lab">—</div>
+      </div>
+      <div class="slider">
+        <input type="range" class="og" min="0" max="2" step="0.05" value="1">
+        <span class="val">×1.00</span>
+      </div>
     </div>`).join('');
 
   idiomas.forEach(l => {
-    const c = $('conf-salidas').querySelector(`[data-i="${l.idioma}"]`);
-    const s = a.salidas[l.idioma] || {};
-    opciones(c.querySelector('.s-disp'), dispositivos.salidas, s.dispositivo,
-             [{t: '(la del sistema)', v: ''}]);
-    opcionesCanal(c.querySelector('.s-canal'),
-                  canalesDe(s.dispositivo, dispositivos.salidas), s.canal || 0);
-    c.querySelector('.s-disp').onchange = () => {
-      opcionesCanal(c.querySelector('.s-canal'),
-                    canalesDe(c.querySelector('.s-disp').value, dispositivos.salidas), 0);
-      aplicarSalida(l);
+    const c = $('channels').querySelector(`[data-i="${l.idioma}"]`);
+    const s = c.querySelector('.og');
+    s.oninput = () => {
+      arrastrando = l.idioma;
+      c.querySelector('.val').textContent = '×' + (+s.value).toFixed(2);
+      pintarSlider(s);
     };
-    c.querySelector('.s-canal').onchange = () => aplicarSalida(l);
-    c.querySelector('.probar').onclick = async e => {
-      const b = e.target; b.disabled = true; b.textContent = 'Sonando...';
-      try {
-        const d = await enviar('/probar', {idioma: l.idioma});
-        aviso(`Frase de prueba enviada a ${l.nombre} (${d.duracion}s). `
-              + `Escuchá en el receptor y ajustá el nivel.`, false);
-        setTimeout(() => { b.disabled = false; b.textContent = 'Probar este canal'; },
-                   d.duracion * 1000 + 500);
-      } catch (err) {
-        aviso(err.message, true);
-        b.disabled = false; b.textContent = 'Probar este canal';
-      }
+    s.onchange = async () => {
+      try { await enviar('/config/nivel', {destino:l.idioma, ganancia:+s.value}); }
+      catch(e){ msg(e.message, true); }
+      setTimeout(()=>{ arrastrando = null; }, 400);
     };
   });
 }
 
-async function aplicarSalida(l) {
-  const c = $('conf-salidas').querySelector(`[data-i="${l.idioma}"]`);
-  try {
-    await enviar('/config/salida', {
-      idioma: l.idioma,
-      dispositivo: c.querySelector('.s-disp').value,
-      canal: +c.querySelector('.s-canal').value
-    });
-    aviso(`${l.nombre} ahora sale por ${c.querySelector('.s-disp').selectedOptions[0].text}`, false);
-  } catch (err) {
-    aviso(err.message, true);
-    cargarDispositivos();   // volver a lo que quedo realmente aplicado
+/* ---------- estado ---------- */
+function pintarEstado(e){
+  medidor('in', e.entrada || 0);
+  $('t-n').textContent = e.frases || 0;
+  const s = e.transcurrido || 0;
+  $('t-time').textContent = String(Math.floor(s/60)).padStart(2,'0') + ':' +
+                            String(Math.floor(s%60)).padStart(2,'0');
+  const offline = e.modo !== 'claude';
+  $('p-mode').classList.toggle('oculto', !offline);
+  if (offline) $('t-mode').textContent = 'Traduciendo offline (Whisper)';
+
+  document.body.classList.toggle('pausado', !!e.pausado);
+  const b = $('btn-pausa');
+  b.textContent = e.pausado ? 'Reanudar traducción' : 'Pausar traducción';
+  b.classList.toggle('off', !!e.pausado);
+
+  /* Señal cruda contra señal corregida: si entra pero no llega, es ganancia. */
+  const h = $('in-hint');
+  if ((e.entrada_cruda||0) < 0.002)
+    h.innerHTML = 'Sin señal. Si alguien está hablando, revisá el <b>cable del mixer</b>.';
+  else if ((e.entrada||0) < 0.02)
+    h.innerHTML = 'Entra señal pero <b>muy baja</b>. Subí la ganancia o el aux send.';
+  else if ((e.entrada||0) > 0.95)
+    h.innerHTML = '<b>Saturando.</b> Bajá la ganancia: así el reconocimiento empeora.';
+  else h.innerHTML = 'Nivel correcto.';
+
+  if (e.idiomas && e.idiomas.length !== idiomas.length){ idiomas = e.idiomas; construirCanales(); }
+  if (arrastrando === null && e.ganancia_entrada != null && !$('in-gain').matches(':active')){
+    $('in-gain').value = e.ganancia_entrada;
+    $('in-gain-v').textContent = '×' + (+e.ganancia_entrada).toFixed(2);
+    pintarSlider($('in-gain'));
   }
+
+  idiomas.forEach(l => {
+    const c = $('channels').querySelector(`[data-i="${l.idioma}"]`);
+    if(!c) return;
+    const d = (e.canales||{})[l.idioma] || {};
+    medidor('o'+l.idioma, d.nivel || 0);
+    const lag = c.querySelector('.lag');
+    lag.textContent = (d.atraso ?? 0).toFixed(1) + 's atraso';
+    lag.className = 'lag' + (d.atraso > d.umbral_alto ? ' bad'
+                           : d.atraso > d.umbral_medio ? ' warn' : '');
+    if (arrastrando !== l.idioma && d.ganancia != null){
+      const s = c.querySelector('.og');
+      s.value = d.ganancia;
+      c.querySelector('.val').textContent = '×' + (+d.ganancia).toFixed(2);
+      pintarSlider(s);
+    }
+  });
+
+  const p = e.promedios || {};
+  const ms = v => v ? (v/1000).toFixed(2)+'s' : '—';
+  $('s-stt').textContent = ms(p.stt); $('s-trad').textContent = ms(p.trad);
+  $('s-tts').textContent = ms(p.tts);
+  $('s-tot').textContent = ms((p.stt||0)+(p.trad||0)+(p.tts||0));
 }
 
-$('ent-disp').onchange = async () => {
-  opcionesCanal($('ent-canal'),
-                canalesDe($('ent-disp').value, dispositivos.entradas), 0);
+/* ---------- transcripcion ---------- */
+$('feed').addEventListener('scroll', e => {
+  stick = e.target.scrollHeight - e.target.scrollTop - e.target.clientHeight < 70;
+});
+
+function pintarFrase(f){
+  let el = document.querySelector(`.ph[data-seq="${f.seq}"]`);
+  if(!el){
+    $('empty').style.display = 'none';
+    el = document.createElement('div');
+    el.className = 'ph'; el.dataset.seq = f.seq;
+    $('feed').appendChild(el);
+    while($('feed').querySelectorAll('.ph').length > 200)
+      $('feed').querySelector('.ph').remove();
+  }
+  el.classList.toggle('off', !!f.offline);
+  const mm = String(Math.floor(f.t/60)).padStart(2,'0'),
+        ss = String(Math.floor(f.t%60)).padStart(2,'0');
+  el.innerHTML =
+    `<div class="meta"><span>${mm}:${ss}</span>` +
+    (f.ms_trad ? `<span class="tag">${((f.ms_stt+f.ms_trad)/1000).toFixed(1)}s</span>` : '') +
+    (f.offline ? '<span class="tag" style="color:var(--warn)">offline</span>' : '') +
+    `</div><div class="src">${esc(f.es)}</div>` +
+    Object.entries(f.traducciones||{}).filter(([,t])=>t)
+      .map(([i,t])=>`<div class="dst"><span class="cd">${i}</span>${esc(t)}</div>`).join('');
+  if(stick) $('feed').scrollTop = $('feed').scrollHeight;
+}
+
+/* ---------- configuracion de dispositivos ---------- */
+function opciones(sel, lista, elegido){
+  sel.innerHTML = '';
+  sel.appendChild(new Option('(la del sistema)', ''));
+  lista.forEach(d => sel.appendChild(new Option(d.nombre, d.nombre)));
+  const v = elegido == null ? '' : elegido;
+  sel.value = v;
+  if(sel.value !== v){   // configurado pero no conectado: mostrarlo igual
+    sel.appendChild(new Option(elegido + ' — no conectado', elegido));
+    sel.value = elegido;
+  }
+}
+const canalesDe = (n, l) => (l.find(x=>x.nombre===n) || {}).canales || 2;
+function opcionesCanal(sel, n, eleg){
+  const nom = ['Izquierdo (L)','Derecho (R)'];
+  sel.innerHTML = '';
+  for(let i=0;i<Math.max(n,1);i++) sel.appendChild(new Option(nom[i]||('Canal '+i), i));
+  sel.value = Math.min(eleg, Math.max(n-1,0));
+}
+
+async function cargarDispositivos(){
+  devs = await (await fetch('/dispositivos')).json();
+  const a = devs.actual;
+  opciones($('in-dev'), devs.entradas, a.entrada.dispositivo);
+  opcionesCanal($('in-ch'), canalesDe(a.entrada.dispositivo, devs.entradas), a.entrada.canal);
+
+  $('out-cfg').innerHTML = idiomas.map(l => `
+    <div class="field" data-i="${l.idioma}">
+      <label>Salida de ${esc(l.nombre)} — al transmisor</label>
+      <div class="row2"><select class="od"></select><select class="oc"></select></div>
+      <label style="margin:9px 0 5px">Voz</label>
+      <select class="ov"></select>
+      <div class="hint vh" style="margin-top:5px"></div>
+      <button class="full test" style="margin-top:8px">Probar este canal</button>
+    </div>`).join('');
+
+  idiomas.forEach(l => {
+    const c = $('out-cfg').querySelector(`[data-i="${l.idioma}"]`);
+    const s = a.salidas[l.idioma] || {};
+    opciones(c.querySelector('.od'), devs.salidas, s.dispositivo);
+    opcionesCanal(c.querySelector('.oc'), canalesDe(s.dispositivo, devs.salidas), s.canal||0);
+    c.querySelector('.od').onchange = () => {
+      opcionesCanal(c.querySelector('.oc'),
+        canalesDe(c.querySelector('.od').value, devs.salidas), 0);
+      aplicarSalida(l);
+    };
+    c.querySelector('.oc').onchange = () => aplicarSalida(l);
+    cargarVoces(l, c, s.voz);
+    c.querySelector('.test').onclick = async ev => {
+      const b = ev.target; b.disabled = true; b.textContent = 'Sonando…';
+      try{
+        const d = await enviar('/probar', {idioma:l.idioma});
+        msg(`Frase de prueba en ${l.nombre} (${d.duracion}s). Escuchá en el receptor y ajustá el nivel.`, false);
+        setTimeout(()=>{ b.disabled=false; b.textContent='Probar este canal'; }, d.duracion*1000+400);
+      }catch(e){ msg(e.message, true); b.disabled=false; b.textContent='Probar este canal'; }
+    };
+  });
+}
+
+/* La calidad de la voz es la decision que mas afecta la latencia, y desde el
+   nombre no se ve: conviene decirlo al lado del selector. */
+function notaVoz(c, sel){
+  const o = sel.selectedOptions[0], h = c.querySelector('.vh');
+  if(!o || !h) return;
+  const alta = o.dataset.cal === 'high';
+  h.innerHTML = o.dataset.nota
+    ? (alta ? '<b style="color:var(--warn)">⚠ ' + o.dataset.nota + '</b>' : o.dataset.nota)
+    : '';
+}
+
+async function cargarVoces(l, c, actual){
+  const sel = c.querySelector('.ov');
+  sel.innerHTML = '<option>cargando…</option>';
+  try{
+    const voces = await (await fetch('/voces?idioma=' + encodeURIComponent(l.idioma))).json();
+    sel.innerHTML = '';
+    voces.forEach(v => {
+      // Las no instaladas se bajan al elegirlas (~60-120 MB, una sola vez).
+      const o = new Option(v.etiqueta + (v.instalada ? '' : '  — se descarga'), v.id);
+      o.dataset.nota = v.nota || ''; o.dataset.cal = v.calidad || '';
+      sel.appendChild(o);
+    });
+    if(actual) sel.value = actual;
+    notaVoz(c, sel);
+  }catch(e){ sel.innerHTML = '<option>no pude cargar el catálogo</option>'; }
+  sel.onchange = async () => {
+    notaVoz(c, sel);
+    const prev = sel.value;
+    sel.disabled = true;
+    msg('Cambiando la voz… si hay que descargarla puede tardar un minuto.', false);
+    try{
+      await enviar('/config/voz', {idioma:l.idioma, voz:sel.value});
+      msg(`Voz de ${l.nombre} cambiada. Probá el canal para escucharla.`, false);
+      cargarVoces(l, c, prev);
+    }catch(e){ msg(e.message, true); }
+    sel.disabled = false;
+  };
+}
+
+async function aplicarSalida(l){
+  const c = $('out-cfg').querySelector(`[data-i="${l.idioma}"]`);
+  try{
+    await enviar('/config/salida', {idioma:l.idioma,
+      dispositivo:c.querySelector('.od').value, canal:+c.querySelector('.oc').value});
+    msg(`${l.nombre} ahora sale por ${c.querySelector('.od').selectedOptions[0].text}`, false);
+  }catch(e){ msg(e.message, true); cargarDispositivos(); }
+}
+async function aplicarEntrada(){
+  try{
+    await enviar('/config/entrada', {dispositivo:$('in-dev').value, canal:+$('in-ch').value});
+    msg('Entrada cambiada. Hablá y mirá el medidor.', false);
+  }catch(e){ msg(e.message, true); cargarDispositivos(); }
+}
+$('in-dev').onchange = () => {
+  opcionesCanal($('in-ch'), canalesDe($('in-dev').value, devs.entradas), 0);
   aplicarEntrada();
 };
-$('ent-canal').onchange = () => aplicarEntrada();
+$('in-ch').onchange = aplicarEntrada;
+$('cfg').addEventListener('toggle', () => { if($('cfg').open) cargarDispositivos(); });
 
-async function aplicarEntrada() {
-  try {
-    await enviar('/config/entrada', {
-      dispositivo: $('ent-disp').value, canal: +$('ent-canal').value
-    });
-    aviso('Entrada cambiada. Hablá y mirá el medidor de arriba.', false);
-  } catch (err) {
-    aviso(err.message, true);
-    cargarDispositivos();
-  }
-}
+$('in-gain').oninput = e => {
+  arrastrando = 'entrada';
+  $('in-gain-v').textContent = '×' + (+e.target.value).toFixed(2);
+  pintarSlider(e.target);
+};
+$('in-gain').onchange = async e => {
+  try{ await enviar('/config/nivel', {destino:'entrada', ganancia:+e.target.value}); }
+  catch(err){ msg(err.message, true); }
+  setTimeout(()=>{ arrastrando = null; }, 400);
+};
+pintarSlider($('in-gain'));
 
-// Al desplegar el panel de configuracion, releer las placas: puede haberse
-// enchufado la interfaz despues de arrancar.
-$('conf').addEventListener('toggle', () => { if ($('conf').open) cargarDispositivos(); });
+$('btn-pausa').onclick = async e => {
+  const b = e.target; b.disabled = true;
+  try{ await enviar('/pausa', {pausado: b.textContent.startsWith('Pausar')}); }
+  catch(err){ msg(err.message, true); }
+  b.disabled = false;
+};
 
-const fuente = new EventSource('/eventos');
-fuente.onopen = () => { $('con').textContent = 'en vivo'; $('p-con').className = 'punto on'; };
-fuente.onerror = () => { $('con').textContent = 'reconectando'; $('p-con').className = 'punto off'; };
-fuente.onmessage = ev => {
+const src = new EventSource('/eventos');
+src.onopen = () => $('p-con').classList.add('oculto');
+src.onerror = () => {
+  $('t-con').textContent = 'Sin conexión con la aplicación';
+  $('p-con').classList.remove('oculto');
+};
+src.onmessage = ev => {
   const d = JSON.parse(ev.data);
-  if (d.tipo === 'estado') pintarEstado(d);
-  else if (d.tipo === 'frase') pintarFrase(d);
+  if(d.tipo === 'estado') pintarEstado(d); else if(d.tipo === 'frase') pintarFrase(d);
 };
 </script>
 </body>

@@ -251,6 +251,25 @@ sigue a los auriculares cuando los conectás.
 suelta para probar, esperar 3 segundos de "cuerpo" se siente eterno. Para el
 culto de verdad se usa `config.yaml`.
 
+### Ensayo general con una grabación
+
+Pasa un video o audio de un sermón por el pipeline **a velocidad real**, con la
+traducción saliendo por el transmisor igual que en un culto:
+
+```bash
+.venv/bin/python main.py --archivo sermon.mp4
+```
+
+Acepta cualquier formato que lea ffmpeg. El panel funciona normal; en "Entrada"
+aparece `archivo: sermon.mp4` en vez de una placa. Es la forma de probar el
+sistema completo, con el hardware real, sin que nadie tenga que predicar.
+
+Con `--velocidad 4` va más rápido para revisar cómo traduce un sermón largo,
+pero para probar niveles y transmisores usá la velocidad real.
+
+> Esto evita tener que instalar un cable de audio virtual (BlackHole, VB-Cable)
+> para que la aplicación capture lo que reproduce la computadora.
+
 ### Probar sin micrófono
 
 ```bash
@@ -430,6 +449,8 @@ esperando portugués).
 | `glosario.yaml` | Vocabulario y términos de la iglesia |
 | `.env` | La clave del proveedor (crear a partir de `.env.ejemplo`) |
 | `traductor/audio.py` | Captura y corte en frases (VAD) |
+| `traductor/fuente.py` | Reproducir un archivo por el pipeline (ensayo) |
+| `traductor/voces.py` | Catálogo de voces de Piper |
 | `traductor/stt.py` | Reconocimiento de voz (Whisper) |
 | `traductor/traduccion.py` | Traducción (Gemini / Claude + fallback offline) |
 | `traductor/tts.py` | Síntesis de voz (Piper) |

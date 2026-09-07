@@ -46,11 +46,17 @@ def descargar_voz(voz: str, carpeta: Path = CARPETA_VOCES) -> None:
     import subprocess
 
     carpeta.mkdir(parents=True, exist_ok=True)
+    # Capturamos la salida: si el nombre esta mal, piper vuelca un traceback
+    # entero, y lo que necesita ver quien esta configurando es una linea.
     r = subprocess.run(
-        [sys.executable, "-m", "piper.download_voices", voz, "--data-dir", str(carpeta)]
+        [sys.executable, "-m", "piper.download_voices", voz, "--data-dir", str(carpeta)],
+        capture_output=True, text=True,
     )
     if r.returncode != 0:
-        raise RuntimeError(f"No pude bajar la voz {voz!r}.")
+        detalle = (r.stderr or "").strip().splitlines()
+        motivo = detalle[-1] if detalle else "error desconocido"
+        motivo = motivo.split(": ", 1)[-1] if ": " in motivo else motivo
+        raise RuntimeError(f"No pude bajar la voz {voz!r}: {motivo}")
 
 
 def ruta_voz(voz: str, carpeta: Path = CARPETA_VOCES, bajar: bool = False) -> Path:

@@ -128,6 +128,16 @@ class Panel_:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Traductor automatico de culto")
     ap.add_argument("-c", "--config", default="config.yaml")
+    ap.add_argument(
+        "--archivo", metavar="RUTA",
+        help="reproducir un video o audio por el pipeline en vez de escuchar "
+             "el micrófono (ensayo general: la traducción sale igual por el "
+             "transmisor)",
+    )
+    ap.add_argument(
+        "--velocidad", type=float, default=1.0,
+        help="velocidad de reproducción del archivo (1.0 = tiempo real)",
+    )
     ap.add_argument("--verboso", action="store_true", help="mostrar log detallado")
     args = ap.parse_args()
 
@@ -161,7 +171,7 @@ def main() -> int:
         )
 
     try:
-        pipeline = Pipeline(cfg)
+        pipeline = Pipeline(cfg, archivo=args.archivo, velocidad=args.velocidad)
     except Exception as e:
         consola.print(f"[red]No pude arrancar:[/red] {e}")
         return 1

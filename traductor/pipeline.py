@@ -48,8 +48,9 @@ class Evento:
 
 
 class Pipeline:
-    def __init__(self, cfg, al_actualizar=None):
+    def __init__(self, cfg, al_actualizar=None, archivo=None, velocidad=1.0):
         self.cfg = cfg
+        self.archivo = archivo
         self.al_actualizar = al_actualizar or (lambda ev: None)
         self.idiomas = cfg.idiomas
 
@@ -70,7 +71,16 @@ class Pipeline:
             s.idioma: MotorTTS(s.voz, s.velocidad) for s in cfg.salidas
         }
         self.ruteador = Ruteador(cfg.salidas)
-        self.captura = CapturaAudio(cfg.entrada, cfg.vad, self._al_detectar_frase)
+        if archivo:
+            from .fuente import FuenteArchivo
+
+            self.captura = FuenteArchivo(
+                archivo, cfg.entrada, cfg.vad, self._al_detectar_frase, velocidad
+            )
+        else:
+            self.captura = CapturaAudio(
+                cfg.entrada, cfg.vad, self._al_detectar_frase
+            )
 
         self._cola_stt: queue.Queue[Frase | None] = queue.Queue()
         self._cola_traduccion: queue.Queue[tuple[Evento, np.ndarray] | None] = queue.Queue()
@@ -80,6 +90,10 @@ class Pipeline:
         self._hilos: list[threading.Thread] = []
         self._corriendo = False
 
+        # Pausar no es apagar: la captura sigue abierta (asi el medidor de
+        # entrada sigue sirviendo para ajustar niveles) pero no se procesa
+        # nada. Sirve para los himnos, donde traducir no aporta y solo gasta.
+        self.pausado = False
         self.eventos: list[Evento] = []
         self.descartado_s: dict[str, float] = {i: 0.0 for i in self.idiomas}
         self._registro = None
@@ -87,7 +101,8 @@ class Pipeline:
     def _verificar_dispositivos(self) -> None:
         import sounddevice as sd
 
-        buscar_dispositivo(self.cfg.entrada.dispositivo, entrada=True)
+        if not self.archivo:
+            buscar_dispositivo(self.cfg.entrada.dispositivo, entrada=True)
         for s in self.cfg.salidas:
             buscar_dispositivo(s.dispositivo, entrada=False)
 
@@ -120,6 +135,8 @@ class Pipeline:
     # ---------------- etapas ----------------
 
     def _al_detectar_frase(self, frase: Frase) -> None:
+        if self.pausado:
+            return
         self._cola_stt.put(frase)
 
     def _hilo_stt(self) -> None:
@@ -242,6 +259,57 @@ class Pipeline:
         self.ruteador.reconfigurar(idioma, dispositivo, canal, ganancia)
         log.info("Salida de %s a %s (canal %d)", idioma,
                  dispositivo or "por defecto", canal)
+
+    def pausar(self, pausado: bool = True) -> bool:
+        """Corta o reanuda la traduccion sin tocar el resto.
+
+        Al pausar se descarta lo que quedo en el camino: si alguien pausa
+        porque arranca la alabanza, que siga saliendo la frase anterior por el
+        auricular es peor que el silencio.
+        """
+        self.pausado = pausado
+        if pausado:
+            for cola in self._colas_tts.values():
+                while not cola.empty():
+                    try:
+                        cola.get_nowait()
+                    except queue.Empty:
+                        break
+            for idioma in self.idiomas:
+                self.ruteador.descartar_sobre(idioma, 0.0)
+        log.info("Traduccion %s", "pausada" if pausado else "reanudada")
+        return self.pausado
+
+    def cambiar_voz(self, idioma: str, voz: str) -> str:
+        """Cambia la voz de un idioma. La baja si hace falta (tarda un poco)."""
+        from .tts import MotorTTS
+
+        if idioma not in self.motores:
+            raise KeyError(f"No hay salida configurada para {idioma!r}")
+        salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+        # Se arma el motor nuevo antes de soltar el viejo: si la voz no existe
+        # o falla la descarga, el canal sigue funcionando con la de antes.
+        motor = MotorTTS(voz, salida.velocidad, bajar_si_falta=True)
+        self.motores[idioma] = motor
+        salida.voz = voz
+        log.info("Voz de %s cambiada a %s", idioma, voz)
+        return voz
+
+    def cambiar_nivel(self, destino: str, valor: float) -> float:
+        """Ajusta la ganancia de la entrada o de un canal de salida.
+
+        Se aplica al instante y sin cortar nada: es un multiplicador, no
+        reabre ningun stream. `destino` es "entrada" o el codigo de idioma.
+        """
+        valor = max(0.0, min(float(valor), 4.0))
+        if destino == "entrada":
+            self.cfg.entrada.ganancia = valor
+        elif destino in self.ruteador.buffers:
+            self.ruteador.salidas[destino].ganancia = valor
+            self.ruteador.buffers[destino].ganancia = valor
+        else:
+            raise KeyError(f"No hay un canal llamado {destino!r}")
+        return valor
 
     def probar_canal(self, idioma: str) -> float:
         """Manda una frase de prueba al canal. Devuelve su duracion."""
