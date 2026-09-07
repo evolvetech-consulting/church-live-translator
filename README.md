@@ -60,24 +60,47 @@ daño, no reemplaza tener bien el nivel.
 
 ## 2. Instalación
 
-### macOS (desarrollo)
+### La forma fácil
+
+1. Bajá el proyecto: **Code → Download ZIP** en GitHub, y descomprimilo.
+   O con git: `git clone https://github.com/evolvetech-consulting/church-live-translator`
+2. Doble clic en:
+   - **`instalar.bat`** en Windows
+   - **`instalar.command`** en macOS
+
+El instalador crea el entorno, baja las librerías y las voces, prepara el
+archivo de la clave y deja un acceso directo en el Escritorio. Tarda unos
+minutos la primera vez. Es seguro volver a ejecutarlo: detecta lo que ya está
+hecho y saltea.
+
+> **Windows:** si no tenés Python, el instalador te lo dice y te pasa el enlace.
+> Al instalarlo, tildá **"Add python.exe to PATH"** en la primera pantalla.
+
+> **Poné la carpeta en una ruta corta** — `C:\traductor` es ideal. Windows corta
+> las rutas a 260 caracteres y algunas librerías tienen límites más bajos
+> todavía. El instalador avisa si la ruta es larga.
+
+Después: **`iniciar.bat`** (o el acceso directo del Escritorio) arranca todo y
+abre el panel en el navegador.
+
+### A mano
+
+Si preferís hacerlo paso a paso:
 
 ```bash
+# macOS
 brew install python@3.12 portaudio
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m piper.download_voices en_US-lessac-medium --data-dir voces
 ```
 
-### Windows (la PC de la iglesia)
-
 ```bat
+REM Windows (no hace falta portaudio: viene con sounddevice)
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python -m piper.download_voices en_US-lessac-medium --data-dir voces
 ```
-
-En Windows no hace falta portaudio aparte: viene con `sounddevice`.
 
 **Si la PC tiene placa NVIDIA**, instalá CUDA y poné `dispositivo: "cuda"` en la
 sección `stt`. Ahí podés usar el modelo `medium` o `large-v3`, que reconocen
@@ -313,6 +336,7 @@ esperando portugués).
 
 | Archivo | Qué hace |
 |---|---|
+| `instalar.bat` / `.command` | Instalador de doble clic (la lógica está en `instalar.py`) |
 | `main.py` | Arranque y panel del operador |
 | `config.yaml` | Toda la configuración |
 | `glosario.yaml` | Vocabulario y términos de la iglesia |

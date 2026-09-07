@@ -7,3 +7,5 @@ registros/
 simulacro/
 .env
 pruebas/
+iniciar.bat
+iniciar.command

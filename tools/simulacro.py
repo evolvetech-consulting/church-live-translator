@@ -75,7 +75,9 @@ def escribir_wav(ruta: Path, audio: np.ndarray, frecuencia: int) -> None:
 
 def sintetizar_guion(frases: list[str], voz: str) -> np.ndarray:
     consola.print(f"[grey50]Generando audio de prueba con la voz {voz}...[/grey50]")
-    motor = MotorTTS(voz)
+    # Esta voz es solo para generar el audio de entrada de prueba, asi que no
+    # viene con la instalacion: se baja la primera vez que se usa --demo.
+    motor = MotorTTS(voz, bajar_si_falta=True)
     tramos = [np.zeros(int(FREC_INTERNA * 0.8), dtype=np.float32)]
     for frase in frases:
         a = motor.sintetizar(frase)
