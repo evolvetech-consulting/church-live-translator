@@ -85,9 +85,37 @@ class Pipeline:
         self._registro = None
 
     def _verificar_dispositivos(self) -> None:
+        import sounddevice as sd
+
         buscar_dispositivo(self.cfg.entrada.dispositivo, entrada=True)
         for s in self.cfg.salidas:
             buscar_dispositivo(s.dispositivo, entrada=False)
+
+        # La PC de la iglesia suele hacer tambien otra cosa: pasar los himnos,
+        # videos, la letra en pantalla. Todo eso sale por el dispositivo por
+        # defecto de Windows. Si la traduccion apunta al mismo, dos cosas
+        # malas pasan a la vez: la congregacion escucha la traduccion al
+        # ingles por los parlantes de la sala, y quien tiene el receptor
+        # escucha los himnos y los sonidos del sistema.
+        try:
+            defecto = sd.default.device[1]
+        except Exception:
+            return
+        for s in self.cfg.salidas:
+            indice = buscar_dispositivo(s.dispositivo, entrada=False)
+            # indice None significa literalmente "la salida por defecto", que
+            # es el caso peligroso, no uno distinto.
+            if indice is not None and indice != defecto:
+                continue
+            nombre = sd.query_devices(defecto)["name"]
+            log.warning(
+                "La salida de %s va al dispositivo POR DEFECTO del sistema (%s). "
+                "Si esta computadora reproduce otra cosa (himnos, videos, "
+                "sonidos de Windows), va a salir por el mismo lugar: la sala va "
+                "a escuchar la traduccion y el receptor va a escuchar los "
+                "himnos. Elegi una placa dedicada para el transmisor.",
+                s.nombre, nombre,
+            )
 
     # ---------------- etapas ----------------
 

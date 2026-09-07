@@ -38,6 +38,37 @@ No estás obligado a usarlos como par estéreo:
 Para un tercer idioma, agregá un dongle USB de audio (~$10) y poné su nombre en
 `dispositivo`.
 
+### Compartir la PC con los himnos
+
+La misma computadora puede pasar los himnos por los parlantes de la iglesia y
+alimentar el transmisor al mismo tiempo. La aplicación abre **una placa concreta
+por nombre**, no "la salida por defecto", así que no le toca nada al sistema:
+
+```
+Windows (salida por defecto)  →  placa de la PC  →  parlantes de la sala  (himnos)
+Traductor (placa nombrada)    →  UM2            →  T130                   (traducción)
+```
+
+Son streams distintos sobre placas distintas: conviven sin problema, y el resto
+de los programas ni se entera.
+
+**Dos reglas para que funcione:**
+
+1. **Nombrá la placa en `config.yaml`.** Nunca dejes `dispositivo: null` en una
+   salida: eso significa literalmente "la salida por defecto del sistema", y ahí
+   la traducción al inglés sale por los parlantes de la sala mientras el
+   receptor recibe los himnos. La aplicación avisa al arrancar si detecta esto.
+2. **No pongas la UM2 como dispositivo por defecto de Windows.** Si lo hacés,
+   los himnos y hasta los sonidos del sistema se van al transmisor.
+
+Lo mismo vale para la entrada: la aplicación toma el aux send desde la UM2 sin
+tocar el micrófono por defecto de Windows.
+
+> Tené en cuenta la carga: esa PC va a estar corriendo el programa de
+> proyección **y** Whisper a la vez. Probá la combinación antes del culto y mirá
+> el **atraso** en el panel — si se va a rojo y se queda, la máquina no da y hay
+> que bajar el modelo de Whisper.
+
 ### ⚠️ Nivel de salida hacia el T130
 
 La entrada del T130 es de **micrófono** y la salida de la UM2 es de **línea**:
