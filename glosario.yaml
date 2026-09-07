@@ -21,7 +21,7 @@ nombres:
   - Pastor Marcelo
   - Iglesia Cristiana
   # Nombres de Dios: Whisper los destroza sin esto ("Dejiova" por "Jehova").
-  - Jehova
+  - Jehová
   - Jesucristo
   - Cristo
 
@@ -36,7 +36,7 @@ terminos:
     en: worship
   culto:
     en: service
-  celula:
+  célula:
     en: small group
   discipulado:
     en: discipleship
@@ -44,15 +44,15 @@ terminos:
     en: brother
   hermana:
     en: sister
-  congregacion:
+  congregación:
     en: congregation
   ancianos:
     en: elders
   arrepentimiento:
     en: repentance
-  salvacion:
+  salvación:
     en: salvation
-  Espiritu Santo:
+  Espíritu Santo:
     en: Holy Spirit
   misericordia:
     en: mercy
@@ -60,53 +60,92 @@ terminos:
     en: testimony
   primicias:
     en: firstfruits
-  rincon infantil:
+  rincón infantil:
     en: children's corner
+  santa cena:
+    en: the Lord's Supper
+  avivamiento:
+    en: revival
+  célula:
+    en: small group
+  pacto:
+    en: covenant
 
-# Vocabulario que se dice en los cultos y conviene que Whisper conozca.
-# No hace falta traduccion: es solo para el reconocimiento de voz.
+# Vocabulario con el que sesgar el RECONOCIMIENTO de voz (no la traduccion).
+#
+# >>> Whisper solo acepta unos 223 tokens de contexto: entran alrededor de
+#     60 terminos contando tambien `nombres` y `terminos`. Si te pasas, el
+#     sistema avisa al arrancar y te dice cuales quedaron afuera. <<<
+#
+# Por eso conviene poner SOLO lo que el reconocimiento falla de verdad:
+# nombres propios raros y palabras que no son del castellano corriente.
+# Las palabras comunes ("fe", "gracia", "oracion", "evangelio") Whisper las
+# acierta solo, y ocupan lugar que necesitan las dificiles.
+#
+# Escribi todo CON TILDES: Whisper imita la ortografia del contexto que
+# recibe, asi que un glosario sin tildes le hace devolver el texto sin tildes.
+#
+# Como saber cuales agregar: revisa registros/ despues de cada culto y busca
+# las que salieron mal. En un culto real aparecieron "Sehon" como "cejon" y
+# "Horeb" como "error": esas son las que valen.
 vocabulario:
-  - Genesis
-  - Exodo
-  - Salmos
-  - Proverbios
-  - Isaias
-  - Mateo
-  - Marcos
-  - Lucas
-  - Juan
-  - Hechos
-  - Romanos
-  - Corintios
-  - Galatas
+  # Libros que el reconocimiento confunde (los faciles como Juan o Marcos no
+  # hacen falta).
+  - Deuteronomio
+  - Levítico
+  - Crónicas
+  - Eclesiastés
+  - Lamentaciones
+  - Ezequiel
+  - Abdías
+  - Miqueas
+  - Nahúm
+  - Habacuc
+  - Sofonías
+  - Hageo
+  - Malaquías
   - Efesios
   - Filipenses
   - Colosenses
-  - Hebreos
-  - Santiago
+  - Tesalonicenses
+  - Filemón
   - Apocalipsis
-  - Jesucristo
-  - Espiritu Santo
-  - aleluya
-  - amen
-  - bendicion
-  - versiculo
-  - capitulo
-  # Agregados despues de escuchar un culto real: estas son las palabras que
-  # el reconocimiento erro. Cuando encuentres otras en registros/, sumalas aca.
-  - misericordia
-  - misericordioso
-  - jovenes
-  - rincon infantil
-  - congregacion
-  - testimonio
-  - intercesion
-  - ofrenda
+
+  # Nombres y lugares biblicos que no son palabras del castellano corriente.
+  - Sehón
+  - Og
+  - Basán
+  - Horeb
+  - Sinaí
+  - Canaán
+  - Nazaret
+  - amorreos
+  - filisteos
+  - fariseos
+  - saduceos
+  - Eliseo
+  - Matusalén
+
+  # Vocabulario de predicacion que suele salir mal.
+  - versículo
+  - jornadas
   - primicias
-  - santidad
-  - gracia
-  - fe
-  - oracion
+  - intercesión
+  - avivamiento
+  - consagración
+  - misericordioso
+  - rincón infantil
+  # Estas estan tambien en `terminos` (para fijar la traduccion), pero se
+  # repiten aca porque el reconocimiento tambien las falla: "ofrenda" salio
+  # como "ofenda" en una prueba real.
+  - ofrenda
+  - diezmo
+  - alabanza
+  - congregación
+  - arrepentimiento
+  - Espíritu Santo
+  - misericordia
+
 
 # Instrucciones libres para el traductor. Aca va todo lo que no entra
 # en una lista de terminos.

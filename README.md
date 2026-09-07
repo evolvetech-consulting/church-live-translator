@@ -103,8 +103,12 @@ python -m venv .venv
 ```
 
 **Si la PC tiene placa NVIDIA**, instalá CUDA y poné `dispositivo: "cuda"` en la
-sección `stt`. Ahí podés usar el modelo `medium` o `large-v3`, que reconocen
-bastante mejor.
+sección `stt`, y probá `medium` o `large-v3`.
+
+> Medilo antes de asumir que mejora. Sobre audio real de un culto, `medium`
+> tardó 3x más que `small` sin ganar precisión: las únicas diferencias eran
+> tildes y mayúsculas. Con audio limpio del aux send puede cambiar, pero
+> comprobalo con `tools/simulacro.py` sobre una grabación tuya.
 
 ### La clave del traductor
 
@@ -285,16 +289,48 @@ repetís. Sin esperar al sábado.
 
 ## 7. El glosario
 
-`glosario.yaml` es lo que más mueve la aguja. Se usa en dos lugares:
+`glosario.yaml` tiene tres secciones con propósitos distintos:
 
-- **Whisper** lo recibe como contexto, lo que sesga el reconocimiento hacia esas
-  palabras. Es lo que evita que "Efesios" salga como "efectos".
-- **El traductor** lo recibe en el prompt, para traducir con el término que usa esta
-  congregación y no el genérico del diccionario.
+| Sección | Para qué | Límite |
+|---|---|---|
+| `nombres` | Nombres propios de la congregación. Van a los dos lados | ver abajo |
+| `vocabulario` | **Reconocer**: palabras que Whisper falla | ver abajo |
+| `terminos` | **Traducir**: cómo se dice cada cosa en esta iglesia | sin límite |
+
+### El límite de Whisper
+
+**Whisper solo acepta unos 223 tokens de contexto — alrededor de 50 términos —
+y descarta el resto en silencio.** El sistema recorta él mismo, midiendo con el
+tokenizador real, y avisa al arrancar qué quedó afuera:
+
+```
+El glosario tiene 147 términos y en Whisper entran 60.
+Quedaron afuera: Jueces, Rut, Samuel, Reyes, ...
+```
+
+Los términos van por prioridad (`nombres` primero, después `vocabulario`), así
+que lo que se pierde es siempre lo menos importante. Pero si ves ese aviso,
+acortá `vocabulario`.
+
+Por eso conviene poner ahí **solo lo que el reconocimiento falla de verdad**.
+Las palabras comunes ("fe", "gracia", "oración") Whisper las acierta solo y
+ocupan lugar que necesitan las difíciles. En un culto real salió *"Sehón"* como
+*"cejón"* y *"Horeb"* como *"error"*: esas son las que valen.
+
+`terminos` no tiene este problema porque va al traductor, que no tiene límite de
+contexto. Si una palabra además se reconoce mal, ponela en las dos secciones.
+
+### Escribí todo con tildes
+
+Whisper imita la ortografía del contexto que recibe. Un glosario sin tildes le
+hace devolver el texto sin tildes: `Jehova`, `rincon`, `intervencion`.
+
+### Cómo saber qué agregar
 
 Cada culto queda registrado en `registros/culto-AAAA-MM-DD-HHMM.jsonl` con lo
 que se dijo y cómo se tradujo. Revisalo las primeras semanas: los errores que se
-repiten se arreglan agregando una línea al glosario.
+repiten se arreglan agregando una línea.
+
 
 ---
 

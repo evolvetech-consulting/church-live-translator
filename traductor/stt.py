@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 from faster_whisper import WhisperModel
+
+log = logging.getLogger(__name__)
+
+# Whisper acepta un contexto de max_length // 2 - 1 tokens y descarta el resto
+# en silencio. Dejamos un margen para no quedar justo en el borde.
+LIMITE_CONTEXTO = 448 // 2 - 1
+MARGEN = 10
 
 
 def _elegir_backend(dispositivo: str, tipo_computo: str) -> tuple[str, str]:
@@ -39,11 +48,54 @@ class Transcriptor:
             cpu_threads=0,  # 0 = que decida CTranslate2 segun la maquina
         )
 
-        # El prompt inicial sesga el reconocimiento hacia el vocabulario de la
-        # iglesia: nombres propios, terminos teologicos, libros de la Biblia.
-        # Es lo que evita que "Efesios" salga como "efecto".
-        partes = [p for p in (contexto_glosario, cfg_stt.contexto_inicial) if p]
-        self.prompt_inicial = " ".join(partes) or None
+        # Sesgamos el reconocimiento hacia el vocabulario de la iglesia:
+        # nombres propios, terminos teologicos, libros de la Biblia. Es lo que
+        # evita que "Efesios" salga como "efecto" o "Sehon" como "cejon".
+        self.hotwords = self._recortar(contexto_glosario)
+        self.prompt_inicial = cfg_stt.contexto_inicial or None
+
+    def _recortar(self, terminos) -> str | None:
+        """Arma la lista de terminos que entra en el contexto de Whisper.
+
+        Se recorta aca, midiendo con el tokenizador real, en vez de dejar que
+        Whisper lo trunque: asi sabemos que quedo afuera y podemos avisarlo. Si
+        lo trunca Whisper, lo hace sin decir nada.
+        """
+        if isinstance(terminos, str):
+            terminos = [p.strip() for p in terminos.split(",") if p.strip()]
+        if not terminos:
+            return None
+
+        from faster_whisper.tokenizer import Tokenizer
+
+        tok = Tokenizer(
+            self.modelo.hf_tokenizer,
+            self.modelo.model.is_multilingual,
+            task="transcribe",
+            language=self.cfg.idioma,
+        )
+        limite = LIMITE_CONTEXTO - MARGEN
+
+        entran = []
+        for termino in terminos:
+            prueba = ", ".join(entran + [termino])
+            if len(tok.encode(" " + prueba)) > limite:
+                break
+            entran.append(termino)
+
+        if len(entran) < len(terminos):
+            log.warning(
+                "El glosario tiene %d términos y en Whisper entran %d. "
+                "Quedaron afuera: %s. Whisper solo acepta ~%d tokens de "
+                "contexto; los términos van por prioridad (nombres primero), "
+                "así que conviene acortar la lista de `vocabulario` en "
+                "glosario.yaml.",
+                len(terminos), len(entran),
+                ", ".join(terminos[len(entran):][:8])
+                + ("..." if len(terminos) - len(entran) > 8 else ""),
+                LIMITE_CONTEXTO,
+            )
+        return ", ".join(entran)
 
     def transcribir(self, audio: np.ndarray) -> str:
         segmentos, _ = self.modelo.transcribe(
@@ -56,6 +108,11 @@ class Transcriptor:
             # vez, condicionar hace que repita el error en bucle.
             condition_on_previous_text=False,
             initial_prompt=self.prompt_inicial,
+            # hotwords, y no initial_prompt, porque cuando no entra todo
+            # Whisper recorta hotwords desde el final (respeta el orden de
+            # prioridad) e initial_prompt desde el principio (se comeria
+            # justo los nombres propios de la congregacion).
+            hotwords=self.hotwords,
             # Ya venimos segmentados por el VAD; filtrar de nuevo solo agrega
             # trabajo y puede comerse audio valido.
             vad_filter=False,

@@ -112,6 +112,32 @@ class ServidorWeb:
             }
         return estado
 
+    def _dispositivos(self) -> dict:
+        """Placas disponibles, para los desplegables del panel."""
+        import sounddevice as sd
+
+        entradas, salidas = [], []
+        for i, d in enumerate(sd.query_devices()):
+            if d["max_input_channels"] > 0:
+                entradas.append({"nombre": d["name"], "canales": d["max_input_channels"]})
+            if d["max_output_channels"] > 0:
+                salidas.append({"nombre": d["name"], "canales": d["max_output_channels"]})
+
+        actual_salidas = {
+            s.idioma: {"dispositivo": s.dispositivo, "canal": s.canal,
+                       "ganancia": s.ganancia}
+            for s in self.cfg.salidas
+        }
+        return {
+            "entradas": entradas,
+            "salidas": salidas,
+            "actual": {
+                "entrada": {"dispositivo": self.cfg.entrada.dispositivo,
+                            "canal": self.cfg.entrada.canal},
+                "salidas": actual_salidas,
+            },
+        }
+
     # ---------------- publicacion ----------------
 
     def _emitir(self, dato: dict) -> None:
@@ -162,6 +188,50 @@ class ServidorWeb:
             def log_message(self, *a):
                 pass  # sin ruido en la consola del operador
 
+            def _json(self, datos, codigo: int = 200):
+                cuerpo = json.dumps(datos, ensure_ascii=False).encode("utf-8")
+                self.send_response(codigo)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(cuerpo)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(cuerpo)
+
+            def _cuerpo(self) -> dict:
+                largo = int(self.headers.get("Content-Length") or 0)
+                if not largo:
+                    return {}
+                return json.loads(self.rfile.read(largo))
+
+            def do_POST(self):
+                ruta = self.path.split("?")[0].rstrip("/") or "/"
+                if srv.pipeline is None:
+                    return self._json({"error": "el pipeline no esta corriendo"}, 503)
+                try:
+                    datos = self._cuerpo()
+                    if ruta == "/config/entrada":
+                        srv.pipeline.cambiar_entrada(
+                            datos.get("dispositivo") or None, int(datos.get("canal", 0))
+                        )
+                    elif ruta == "/config/salida":
+                        srv.pipeline.cambiar_salida(
+                            datos["idioma"],
+                            datos.get("dispositivo") or None,
+                            int(datos.get("canal", 0)),
+                            float(datos["ganancia"]) if "ganancia" in datos else None,
+                        )
+                    elif ruta == "/probar":
+                        dur = srv.pipeline.probar_canal(datos["idioma"])
+                        return self._json({"ok": True, "duracion": round(dur, 1)})
+                    else:
+                        return self.send_error(404)
+                except Exception as e:
+                    # El mensaje va tal cual al panel: es lo que va a leer quien
+                    # este configurando el audio, y suele decir exactamente que
+                    # placa o canal no sirve.
+                    return self._json({"error": str(e)}, 400)
+                return self._json({"ok": True, "estado": srv._estado()})
+
             def _enviar(self, cuerpo: bytes, tipo: str = "text/html; charset=utf-8"):
                 self.send_response(200)
                 self.send_header("Content-Type", tipo)
@@ -175,10 +245,9 @@ class ServidorWeb:
                 if ruta == "/eventos":
                     return self._sse()
                 if ruta == "/estado":
-                    return self._enviar(
-                        json.dumps(srv._estado(), ensure_ascii=False).encode("utf-8"),
-                        "application/json; charset=utf-8",
-                    )
+                    return self._json(srv._estado())
+                if ruta == "/dispositivos":
+                    return self._json(srv._dispositivos())
                 if ruta == "/subtitulos":
                     return self._enviar(srv._pagina("subtitulos.html"))
                 if ruta == "/":

@@ -117,7 +117,7 @@ def main() -> int:
 
     glosario = Glosario.cargar()
     consola.print(f"[grey50]Cargando Whisper ({cfg.stt.modelo})...[/grey50]")
-    transcriptor = Transcriptor(cfg.stt, glosario.contexto_whisper())
+    transcriptor = Transcriptor(cfg.stt, glosario.terminos_para_whisper())
     traductor = Traductor(cfg.traduccion, glosario, cfg.idiomas, transcriptor)
     motores = {s.idioma: MotorTTS(s.voz, s.velocidad) for s in cfg.salidas}
 

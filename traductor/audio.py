@@ -325,7 +325,7 @@ class CapturaAudio:
             if bloque.size:
                 self.segmentador.alimentar(bloque)
 
-    def iniciar(self):
+    def _abrir_stream(self) -> None:
         canales = 1
         if self.cfg.canal > 0:
             info = sd.query_devices(self.dispositivo, "input")
@@ -335,10 +335,6 @@ class CapturaAudio:
                     f"Pediste el canal {self.cfg.canal} pero el dispositivo solo "
                     f"tiene {info['max_input_channels']} canal(es) de entrada."
                 )
-
-        self._corriendo = True
-        self._hilo = threading.Thread(target=self._procesar, daemon=True)
-        self._hilo.start()
 
         self._stream = sd.InputStream(
             device=self.dispositivo,
@@ -350,12 +346,40 @@ class CapturaAudio:
         )
         self._stream.start()
 
-    def detener(self):
-        self._corriendo = False
+    def _cerrar_stream(self) -> None:
         if self._stream is not None:
             self._stream.stop()
             self._stream.close()
             self._stream = None
+
+    def iniciar(self):
+        self._corriendo = True
+        self._hilo = threading.Thread(target=self._procesar, daemon=True)
+        self._hilo.start()
+        self._abrir_stream()
+
+    def cambiar_dispositivo(self, nombre: str | None, canal: int = 0) -> None:
+        """Cambia de placa sin cortar el pipeline.
+
+        Se reabre solo el stream de audio: los modelos siguen cargados y las
+        frases que estaban en curso terminan de procesarse. Si la placa nueva
+        no sirve, se vuelve a la anterior en vez de quedarse sin entrada.
+        """
+        anterior = (self.cfg.dispositivo, self.cfg.canal, self.dispositivo)
+        self._cerrar_stream()
+        try:
+            self.cfg.dispositivo = nombre
+            self.cfg.canal = canal
+            self.dispositivo = buscar_dispositivo(nombre, entrada=True)
+            self._abrir_stream()
+        except Exception:
+            self.cfg.dispositivo, self.cfg.canal, self.dispositivo = anterior
+            self._abrir_stream()
+            raise
+
+    def detener(self):
+        self._corriendo = False
+        self._cerrar_stream()
         self._cola.put(None)
         if self._hilo is not None:
             self._hilo.join(timeout=2)

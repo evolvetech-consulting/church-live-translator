@@ -60,7 +60,7 @@ class Pipeline:
 
         self.glosario = Glosario.cargar()
         log.info("Cargando Whisper (%s)...", cfg.stt.modelo)
-        self.transcriptor = Transcriptor(cfg.stt, self.glosario.contexto_whisper())
+        self.transcriptor = Transcriptor(cfg.stt, self.glosario.terminos_para_whisper())
         self.traductor = Traductor(
             cfg.traduccion, self.glosario, self.idiomas, self.transcriptor
         )
@@ -188,6 +188,42 @@ class Pipeline:
             ev.ms_tts[idioma] = (time.perf_counter() - t0) * 1000
             self.ruteador.reproducir(idioma, audio, motor.frecuencia)
             self.al_actualizar(ev)
+
+    # ---------------- ajustes en caliente ----------------
+
+    # Frase de prueba por idioma. Sirve para ajustar el nivel hacia el
+    # transmisor sin tener que hablar: se dispara desde el panel y se escucha
+    # en el receptor. Dice de que canal se trata, asi con varios transmisores
+    # se sabe cual es cual.
+    PRUEBAS = {
+        "en": "This is the English channel. Testing, one, two, three. "
+              "If you can hear this clearly, the level is correct.",
+        "pt": "Este e o canal de portugues. Teste, um, dois, tres. "
+              "Se voce ouve com clareza, o nivel esta correto.",
+        "fr": "Ceci est le canal francais. Test, un, deux, trois.",
+        "it": "Questo e il canale italiano. Prova, uno, due, tre.",
+        "de": "Dies ist der deutsche Kanal. Test, eins, zwei, drei.",
+    }
+
+    def cambiar_entrada(self, dispositivo: str | None, canal: int = 0) -> None:
+        self.captura.cambiar_dispositivo(dispositivo, canal)
+        log.info("Entrada cambiada a %s (canal %d)", dispositivo or "por defecto", canal)
+
+    def cambiar_salida(self, idioma: str, dispositivo: str | None, canal: int,
+                       ganancia: float | None = None) -> None:
+        self.ruteador.reconfigurar(idioma, dispositivo, canal, ganancia)
+        log.info("Salida de %s a %s (canal %d)", idioma,
+                 dispositivo or "por defecto", canal)
+
+    def probar_canal(self, idioma: str) -> float:
+        """Manda una frase de prueba al canal. Devuelve su duracion."""
+        if idioma not in self.motores:
+            raise KeyError(f"No hay salida configurada para {idioma!r}")
+        motor = self.motores[idioma]
+        texto = self.PRUEBAS.get(idioma) or f"Test channel {idioma}. One, two, three."
+        audio = motor.sintetizar(texto)
+        self.ruteador.reproducir(idioma, audio, motor.frecuencia)
+        return len(audio) / motor.frecuencia
 
     # ---------------- registro ----------------
 

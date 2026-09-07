@@ -82,11 +82,8 @@ class Ruteador:
         }
         self.salidas = {s.idioma: s for s in salidas}
 
-        # Agrupamos por dispositivo fisico: un stream por placa.
         self._por_dispositivo: dict[int | None, list] = {}
-        for s in salidas:
-            indice = buscar_dispositivo(s.dispositivo, entrada=False)
-            self._por_dispositivo.setdefault(indice, []).append(s)
+        self._agrupar()
 
         self._streams: list[sd.OutputStream] = []
         # Nivel de pico por idioma, para el medidor en pantalla.
@@ -108,15 +105,63 @@ class Ruteador:
 
         return callback, canales
 
+    def _agrupar(self) -> None:
+        """Agrupa las salidas por placa fisica: un stream por placa.
+
+        Abrir dos streams sobre la misma placa hace que se pisen, asi que un
+        unico callback escribe todos los canales de cada una.
+        """
+        self._por_dispositivo = {}
+        for s in self.salidas.values():
+            indice = buscar_dispositivo(s.dispositivo, entrada=False)
+            self._por_dispositivo.setdefault(indice, []).append(s)
+
+    def reconfigurar(self, idioma: str, dispositivo: str | None, canal: int,
+                     ganancia: float | None = None) -> None:
+        """Manda un idioma a otra placa o a otro canal, sin cortar el pipeline.
+
+        El audio ya sintetizado no se pierde: los buffers son por idioma y
+        sobreviven al cambio. Si la configuracion nueva no sirve, se vuelve a
+        la anterior en vez de dejar el canal mudo.
+        """
+        s = self.salidas[idioma]
+        anterior = (s.dispositivo, s.canal, s.ganancia)
+
+        ocupado = [
+            o.nombre for o in self.salidas.values()
+            if o.idioma != idioma and o.dispositivo == dispositivo and o.canal == canal
+        ]
+        if ocupado:
+            raise ValueError(
+                f"Ese canal ya lo usa {ocupado[0]}. Cada idioma necesita su "
+                f"propio canal fisico o se pisan el audio."
+            )
+
+        self.detener()
+        try:
+            s.dispositivo, s.canal = dispositivo, canal
+            if ganancia is not None:
+                s.ganancia = self.buffers[idioma].ganancia = ganancia
+            self._agrupar()
+            self.iniciar()
+        except Exception:
+            s.dispositivo, s.canal, s.ganancia = anterior
+            self.buffers[idioma].ganancia = anterior[2]
+            self._agrupar()
+            self.iniciar()
+            raise
+
     def iniciar(self) -> None:
         for indice, grupo in self._por_dispositivo.items():
             callback, canales = self._hacer_callback(grupo)
             info = sd.query_devices(indice, "output")
             if canales > info["max_output_channels"]:
-                nombres = ", ".join(f"{s.nombre}(canal {s.canal})" for s in grupo)
+                nombres = ", ".join(f"{s.nombre} (canal {s.canal})" for s in grupo)
+                maximo = info["max_output_channels"]
                 raise RuntimeError(
-                    f"{info['name']!r} tiene {info['max_output_channels']} canal(es) "
-                    f"de salida, pero config.yaml pide {canales} para: {nombres}."
+                    f"{info['name']!r} tiene {maximo} canal(es) de salida "
+                    f"({'izquierdo y derecho' if maximo == 2 else f'0 a {maximo - 1}'}), "
+                    f"y hace falta el canal {canales - 1} para: {nombres}."
                 )
             stream = sd.OutputStream(
                 device=indice,

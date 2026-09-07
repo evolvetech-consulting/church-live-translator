@@ -39,16 +39,20 @@ class Glosario:
             notas=(d.get("notas") or "").strip(),
         )
 
-    def contexto_whisper(self) -> str:
-        """Sesga el reconocimiento de voz hacia el vocabulario de la iglesia.
+    def terminos_para_whisper(self) -> list[str]:
+        """Vocabulario con el que sesgar el reconocimiento, por prioridad.
 
-        Whisper toma esto como si fuera texto que viene justo antes del audio,
-        asi que va como una frase corrida y no como una lista.
+        Whisper solo acepta unos 223 tokens de contexto y descarta el resto,
+        asi que el orden importa: lo que va primero es lo que sobrevive.
+
+        Van primero los nombres propios de la congregacion, que no hay forma
+        de que Whisper acierte solo, y despues el vocabulario curado.
+
+        `terminos` NO entra aca: existe para fijar como se traduce cada cosa,
+        y al traductor le llega completo porque no tiene este limite. Si una
+        palabra ademas se reconoce mal, va tambien en `vocabulario`.
         """
-        palabras = self.nombres + self.vocabulario + list(self.terminos)
-        if not palabras:
-            return ""
-        return ", ".join(dict.fromkeys(palabras)) + "."
+        return list(dict.fromkeys(self.nombres + self.vocabulario))
 
     def reglas_para(self, idiomas: list[str]) -> str:
         """Bloque de terminos obligatorios para el prompt de traduccion."""
