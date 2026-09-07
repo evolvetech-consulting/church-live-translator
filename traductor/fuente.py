@@ -13,11 +13,14 @@ para no quedarse sin escuchar el video. Leer el archivo directo evita todo eso.
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
@@ -28,6 +31,59 @@ log = logging.getLogger(__name__)
 BLOQUE_MS = 50
 
 
+def es_url(valor: str) -> bool:
+    return str(valor).startswith(("http://", "https://"))
+
+
+def segundos_de(valor: str) -> int:
+    """Acepta 1418, 23:38 o 1:23:38."""
+    valor = str(valor).strip()
+    if valor.isdigit():
+        return int(valor)
+    partes = [int(p) for p in valor.split(":")]
+    segundos = 0
+    for p in partes:
+        segundos = segundos * 60 + p
+    return segundos
+
+
+def inicio_de_url(url: str) -> int:
+    """Lee el ?t= del enlace, que es como YouTube comparte un momento."""
+    q = parse_qs(urlparse(url).query)
+    for clave in ("t", "start"):
+        if clave in q:
+            crudo = q[clave][0]
+            if crudo.isdigit():
+                return int(crudo)
+            m = re.match(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$", crudo)
+            if m and any(m.groups()):
+                h, mi, s = (int(g or 0) for g in m.groups())
+                return h * 3600 + mi * 60 + s
+    return 0
+
+
+def resolver_stream(url: str) -> str:
+    """Devuelve la URL directa del audio, sin bajar el video entero.
+
+    Asi el ensayo arranca en segundos en vez de esperar la descarga de un
+    culto de una hora.
+    """
+    log.info("Resolviendo el audio del enlace...")
+    r = subprocess.run(
+        [sys.executable, "-m", "yt_dlp", "-f", "bestaudio", "--no-playlist", "-g", url],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        detalle = (r.stderr or "").strip().splitlines()
+        raise RuntimeError(
+            "No pude leer el enlace: " + (detalle[-1] if detalle else "error desconocido")
+        )
+    directa = r.stdout.strip().splitlines()
+    if not directa:
+        raise RuntimeError("El enlace no devolvió ninguna pista de audio.")
+    return directa[-1]
+
+
 class FuenteArchivo:
     """Sustituto de CapturaAudio que lee de un archivo en vez de una placa.
 
@@ -35,10 +91,21 @@ class FuenteArchivo:
     """
 
     def __init__(self, ruta: str | Path, cfg_entrada, cfg_vad, al_emitir,
-                 velocidad: float = 1.0, al_terminar=None):
-        self.ruta = Path(ruta)
-        if not self.ruta.exists():
-            raise FileNotFoundError(f"No encuentro {self.ruta}")
+                 velocidad: float = 1.0, al_terminar=None, desde: int | None = None):
+        self.url = es_url(ruta)
+        # Con un enlace de YouTube no se baja el video: se reproduce desde la
+        # pista de audio directa, asi el ensayo arranca en segundos.
+        self.desde = (
+            desde if desde is not None else (inicio_de_url(str(ruta)) if self.url else 0)
+        )
+        if self.url:
+            self.ruta = str(ruta)
+            self.nombre = "YouTube"
+        else:
+            self.ruta = Path(ruta)
+            if not self.ruta.exists():
+                raise FileNotFoundError(f"No encuentro {self.ruta}")
+            self.nombre = self.ruta.name
         if shutil.which("ffmpeg") is None:
             raise RuntimeError(
                 "Hace falta ffmpeg para leer archivos de audio o video.\n"
@@ -48,7 +115,8 @@ class FuenteArchivo:
 
         self.cfg = cfg_entrada
         # El panel muestra esto donde normalmente iria la placa de entrada.
-        self.cfg.dispositivo = f"archivo: {self.ruta.name}"
+        marca = f" desde {self.desde // 60}:{self.desde % 60:02d}" if self.desde else ""
+        self.cfg.dispositivo = f"{self.nombre}{marca}"
         self.velocidad = max(velocidad, 0.1)
         self.al_terminar = al_terminar
         self.segmentador = Segmentador(cfg_vad, al_emitir)
@@ -91,20 +159,24 @@ class FuenteArchivo:
         self.terminado = True
         self.pico = self.pico_crudo = 0.0
         if self._corriendo:
-            log.info("Se terminó el archivo %s.", self.ruta.name)
+            log.info("Se terminó %s.", self.nombre)
             if self.al_terminar:
                 self.al_terminar()
 
     def iniciar(self) -> None:
+        origen = resolver_stream(self.ruta) if self.url else str(self.ruta)
+        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
+        if self.desde:
+            cmd += ["-ss", str(self.desde)]      # antes de -i: seek rapido
+        cmd += ["-i", origen, "-vn", "-ac", "1", "-ar", str(FREC_INTERNA),
+                "-f", "s16le", "-"]
         self._proc = subprocess.Popen(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(self.ruta),
-             "-vn", "-ac", "1", "-ar", str(FREC_INTERNA), "-f", "s16le", "-"],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
         )
         self._corriendo = True
         self._hilo = threading.Thread(target=self._leer, daemon=True)
         self._hilo.start()
-        log.info("Reproduciendo %s a velocidad %gx", self.ruta.name, self.velocidad)
+        log.info("Reproduciendo %s a velocidad %gx", self.cfg.dispositivo, self.velocidad)
 
     def detener(self) -> None:
         self._corriendo = False

@@ -48,7 +48,8 @@ class Evento:
 
 
 class Pipeline:
-    def __init__(self, cfg, al_actualizar=None, archivo=None, velocidad=1.0):
+    def __init__(self, cfg, al_actualizar=None, archivo=None, velocidad=1.0,
+                 desde=None):
         self.cfg = cfg
         self.archivo = archivo
         self.al_actualizar = al_actualizar or (lambda ev: None)
@@ -75,7 +76,8 @@ class Pipeline:
             from .fuente import FuenteArchivo
 
             self.captura = FuenteArchivo(
-                archivo, cfg.entrada, cfg.vad, self._al_detectar_frase, velocidad
+                archivo, cfg.entrada, cfg.vad, self._al_detectar_frase,
+                velocidad, desde=desde,
             )
         else:
             self.captura = CapturaAudio(

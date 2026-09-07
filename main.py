@@ -130,13 +130,18 @@ def main() -> int:
     ap.add_argument("-c", "--config", default="config.yaml")
     ap.add_argument(
         "--archivo", metavar="RUTA",
-        help="reproducir un video o audio por el pipeline en vez de escuchar "
-             "el micrófono (ensayo general: la traducción sale igual por el "
-             "transmisor)",
+        help="reproducir un archivo O UN ENLACE DE YOUTUBE por el pipeline en "
+             "vez de escuchar el micrófono (ensayo general: la traducción sale "
+             "igual por el transmisor)",
     )
     ap.add_argument(
         "--velocidad", type=float, default=1.0,
         help="velocidad de reproducción del archivo (1.0 = tiempo real)",
+    )
+    ap.add_argument(
+        "--desde", metavar="TIEMPO", default=None,
+        help="momento donde arrancar: 1418, 23:38 o 1:23:38 (por defecto, el "
+             "?t= del enlace)",
     )
     ap.add_argument("--verboso", action="store_true", help="mostrar log detallado")
     args = ap.parse_args()
@@ -171,7 +176,14 @@ def main() -> int:
         )
 
     try:
-        pipeline = Pipeline(cfg, archivo=args.archivo, velocidad=args.velocidad)
+        desde = None
+        if args.desde is not None:
+            from traductor.fuente import segundos_de
+
+            desde = segundos_de(args.desde)
+        pipeline = Pipeline(
+            cfg, archivo=args.archivo, velocidad=args.velocidad, desde=desde
+        )
     except Exception as e:
         consola.print(f"[red]No pude arrancar:[/red] {e}")
         return 1

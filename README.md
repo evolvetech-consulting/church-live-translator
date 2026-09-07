@@ -257,15 +257,26 @@ Pasa un video o audio de un sermón por el pipeline **a velocidad real**, con la
 traducción saliendo por el transmisor igual que en un culto:
 
 ```bash
+# directo desde el stream de YouTube, sin bajar nada
+.venv/bin/python main.py --archivo "https://youtu.be/XXXX?t=1418"
+
+# o un archivo local (mp4, mkv, mp3, wav...)
 .venv/bin/python main.py --archivo sermon.mp4
 ```
 
-Acepta cualquier formato que lea ffmpeg. El panel funciona normal; en "Entrada"
-aparece `archivo: sermon.mp4` en vez de una placa. Es la forma de probar el
-sistema completo, con el hardware real, sin que nadie tenga que predicar.
+Con un enlace no se descarga el video: resuelve la pista de audio y arranca en
+segundos. Respeta el `?t=` del enlace, y también acepta `--desde 23:38`.
+
+El panel funciona normal; en "Entrada" aparece `YouTube desde 23:38` en vez de
+una placa. Es la forma de probar el sistema completo, con el hardware real, sin
+que nadie tenga que predicar.
 
 Con `--velocidad 4` va más rápido para revisar cómo traduce un sermón largo,
 pero para probar niveles y transmisores usá la velocidad real.
+
+> **Usá `config.yaml`, no `config.mac.yaml`.** El de la laptop baja
+> `min_frase_s` a 1.5s para que probando frases sueltas no se sienta lento, y
+> con eso las oraciones del sermón salen partidas.
 
 > Esto evita tener que instalar un cable de audio virtual (BlackHole, VB-Cable)
 > para que la aplicación capture lo que reproduce la computadora.
