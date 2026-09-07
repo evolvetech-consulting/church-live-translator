@@ -124,6 +124,10 @@ class FuenteArchivo:
         self.pico = 0.0
         self.pico_crudo = 0.0
         self.terminado = False
+        # Pausar un archivo tiene que detener tambien la reproduccion: si el
+        # video sigue corriendo mientras no se traduce, esos minutos se
+        # pierden. Con el microfono es distinto, ahi el tiempo corre igual.
+        self._pausa = threading.Event()
         self._hilo: threading.Thread | None = None
         self._corriendo = False
         self._proc: subprocess.Popen | None = None
@@ -135,6 +139,14 @@ class FuenteArchivo:
         leidos = 0
 
         while self._corriendo:
+            if self._pausa.is_set():
+                inicio_pausa = time.monotonic()
+                while self._pausa.is_set() and self._corriendo:
+                    time.sleep(0.05)
+                # El reloj de reproduccion no avanza durante la pausa.
+                t0 += time.monotonic() - inicio_pausa
+                self.pico = self.pico_crudo = 0.0
+                continue
             datos = self._proc.stdout.read(crudos)
             if not datos:
                 break
@@ -189,6 +201,9 @@ class FuenteArchivo:
             self._proc = None
         if self._hilo is not None:
             self._hilo.join(timeout=2)
+
+    def pausar(self, pausado: bool) -> None:
+        self._pausa.set() if pausado else self._pausa.clear()
 
     def cambiar_dispositivo(self, nombre, canal: int = 0) -> None:
         raise RuntimeError(

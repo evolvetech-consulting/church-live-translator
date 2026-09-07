@@ -100,6 +100,10 @@ class Pipeline:
         # entrada sigue sirviendo para ajustar niveles) pero no se procesa
         # nada. Sirve para los himnos, donde traducir no aporta y solo gasta.
         self.pausado = False
+        # Se incrementa en cada sesion nueva. Una frase que ya estaba dentro
+        # de Whisper cuando el operador reinicio no se puede interrumpir, pero
+        # si se puede descartar al volver: pertenece al culto anterior.
+        self._generacion = 0
         self.eventos: list[Evento] = []
         self.descartado_s: dict[str, float] = {i: 0.0 for i in self.idiomas}
         self._registro = None
@@ -150,13 +154,14 @@ class Pipeline:
             frase = self._cola_stt.get()
             if frase is None:
                 break
+            generacion = self._generacion
             t0 = time.perf_counter()
             try:
                 texto = self.transcriptor.transcribir(frase.audio)
             except Exception:
                 log.exception("Fallo la transcripcion de la frase #%d", frase.seq)
                 continue
-            if not texto:
+            if not texto or generacion != self._generacion:
                 continue
 
             ev = Evento(
@@ -299,6 +304,50 @@ class Pipeline:
         log.info("Salida de %s a %s (canal %d)", idioma,
                  dispositivo or "por defecto", canal)
 
+    def nueva_sesion(self) -> None:
+        """Deja todo limpio para empezar de cero, como un culto nuevo.
+
+        Pausar no alcanza: la transcripcion anterior sigue en pantalla y en el
+        registro. El sabado que viene tiene que arrancar en blanco.
+        """
+        self.pausar(True)
+
+        # Volver al microfono si se estaba reproduciendo un archivo.
+        if hasattr(self.captura, "url"):
+            try:
+                self.cambiar_fuente(None)
+            except Exception:
+                log.exception("No pude volver al micrófono")
+
+        self._generacion += 1
+        self._vaciar_colas()
+        for idioma in self.idiomas:
+            self.ruteador.descartar_sobre(idioma, 0.0)
+            self.descartado_s[idioma] = 0.0
+        self.eventos.clear()
+
+        # Cada sesion tiene su propio archivo de registro, con su fecha y hora.
+        if self._registro is not None:
+            self._registro.close()
+            self._registro = None
+        self._abrir_registro()
+
+        # Se corta tambien el hilo de contexto: las frases del culto anterior
+        # no tienen nada que ver con el que arranca.
+        if getattr(self.traductor, "principal", None) is not None:
+            self.traductor.principal._historial.clear()
+
+        self.pausar(False)
+        log.info("Sesión nueva: todo limpio.")
+
+    def _vaciar_colas(self) -> None:
+        for cola in (self._cola_stt, self._cola_traduccion, *self._colas_tts.values()):
+            while not cola.empty():
+                try:
+                    cola.get_nowait()
+                except queue.Empty:
+                    break
+
     def cambiar_fuente(self, origen: str | None = None, desde=None,
                        velocidad: float = 1.0) -> str:
         """Cambia de donde viene el audio, sin cortar el resto del pipeline.
@@ -346,13 +395,15 @@ class Pipeline:
         auricular es peor que el silencio.
         """
         self.pausado = pausado
+        # Si la fuente es un archivo, se frena tambien la reproduccion: si no,
+        # el sermon sigue corriendo y esos minutos se pierden.
+        if hasattr(self.captura, "pausar"):
+            self.captura.pausar(pausado)
         if pausado:
-            for cola in self._colas_tts.values():
-                while not cola.empty():
-                    try:
-                        cola.get_nowait()
-                    except queue.Empty:
-                        break
+            # Se vacian todas las etapas, no solo la de sintesis: una frase ya
+            # segmentada esperando en la cola de Whisper igual terminaria
+            # sonando despues de que el operador puso pausa.
+            self._vaciar_colas()
             for idioma in self.idiomas:
                 self.ruteador.descartar_sobre(idioma, 0.0)
         log.info("Traduccion %s", "pausada" if pausado else "reanudada")
@@ -405,9 +456,16 @@ class Pipeline:
     def _abrir_registro(self) -> None:
         carpeta = Path(self.cfg.registro_carpeta)
         carpeta.mkdir(parents=True, exist_ok=True)
-        nombre = datetime.now().strftime("culto-%Y-%m-%d-%H%M.jsonl")
-        self._registro = (carpeta / nombre).open("w", encoding="utf-8")
-        log.info("Registrando en %s", carpeta / nombre)
+        base = datetime.now().strftime("culto-%Y-%m-%d-%H%M")
+        # Dos sesiones dentro del mismo minuto no pueden compartir archivo: se
+        # abre en modo escritura y la segunda borraria la primera.
+        destino = carpeta / f"{base}.jsonl"
+        n = 2
+        while destino.exists():
+            destino = carpeta / f"{base}-{n}.jsonl"
+            n += 1
+        self._registro = destino.open("w", encoding="utf-8")
+        log.info("Registrando en %s", destino)
 
     def _anotar(self, ev: Evento) -> None:
         if self._registro is None:

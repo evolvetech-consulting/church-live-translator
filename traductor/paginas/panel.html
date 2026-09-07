@@ -184,6 +184,10 @@
   /* Los avisos de estado solo aparecen cuando hay algo que mirar: mientras
      todo anda bien, la barra queda limpia. */
   .pill.oculto{display:none}
+  #btn-nueva{padding:9px 16px;border-radius:99px;font-size:12.5px;color:var(--tx2)}
+  #btn-nueva:hover:not(:disabled){color:var(--tx);border-color:var(--bd2);
+    background:var(--f2)}
+  .centro{display:flex;align-items:center;gap:9px}
   body.pausado .meter .fill{filter:grayscale(.75);opacity:.55}
   #banda{display:none;background:#3a2a10;border-bottom:1px solid #5c441a;
     color:#e8bf70;font-size:12.5px;padding:8px 20px;text-align:center}
@@ -201,14 +205,17 @@
 
 <div class="top">
   <h1>Traductor del culto</h1>
-  <button id="btn-pausa">Pausar traducción</button>
+  <div class="centro">
+    <button id="btn-pausa">Pausar traducción</button>
+    <button id="btn-nueva" title="Borra la transcripción y arranca un registro nuevo">Nueva sesión</button>
+  </div>
   <div class="der">
     <span class="pill oculto" id="p-con"><i class="dot bad"></i><span id="t-con"></span></span>
     <span class="pill oculto" id="p-mode"><i class="dot warn"></i><span id="t-mode"></span></span>
     <a class="lnk" href="/subtitulos" target="_blank">Vista congregación ↗</a>
   </div>
 </div>
-<div id="banda">Traducción pausada — el audio entra pero no se procesa. Nadie escucha nada por los receptores.</div>
+<div id="banda">Traducción pausada — nadie escucha nada por los receptores. Si venías reproduciendo un video, también quedó en pausa.</div>
 
 <main>
   <div class="col">
@@ -640,6 +647,21 @@ $('in-gain').onchange = async e => {
 };
 pintarSlider($('in-gain'));
 
+function limpiarPantalla(){
+  $('feed').querySelectorAll('.ph').forEach(n => n.remove());
+  $('empty').style.display = '';
+}
+
+$('btn-nueva').onclick = async e => {
+  if(!confirm('¿Empezar una sesión nueva?\n\nSe borra la transcripción en '
+            + 'pantalla y se abre un registro nuevo. Lo del culto anterior '
+            + 'queda guardado en su propio archivo.')) return;
+  const b = e.target; b.disabled = true; b.textContent = 'Limpiando…';
+  try{ await enviar('/sesion/nueva', {}); limpiarPantalla(); }
+  catch(err){ msg(err.message, true); }
+  b.disabled = false; b.textContent = 'Nueva sesión';
+};
+
 $('btn-pausa').onclick = async e => {
   const b = e.target; b.disabled = true;
   try{ await enviar('/pausa', {pausado: b.textContent.startsWith('Pausar')}); }
@@ -655,7 +677,9 @@ src.onerror = () => {
 };
 src.onmessage = ev => {
   const d = JSON.parse(ev.data);
-  if(d.tipo === 'estado') pintarEstado(d); else if(d.tipo === 'frase') pintarFrase(d);
+  if(d.tipo === 'estado') pintarEstado(d);
+  else if(d.tipo === 'frase') pintarFrase(d);
+  else if(d.tipo === 'reinicio') limpiarPantalla();
 };
 </script>
 </body>

@@ -241,6 +241,13 @@ class ServidorWeb:
                             float(datos.get("velocidad", 1.0)),
                         )
                         return self._json({"ok": True, "fuente": nombre})
+                    elif ruta == "/sesion/nueva":
+                        srv.pipeline.nueva_sesion()
+                        srv.t0 = time.time()
+                        # Los navegadores abiertos tienen que limpiar tambien:
+                        # si no, siguen mostrando el culto anterior.
+                        srv._emitir({"tipo": "reinicio"})
+                        return self._json({"ok": True})
                     elif ruta == "/pausa":
                         return self._json(
                             {"ok": True, "pausado": srv.pipeline.pausar(
