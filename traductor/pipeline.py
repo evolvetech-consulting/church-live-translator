@@ -209,7 +209,6 @@ class Pipeline:
         return 1.0 + avance * (lat.velocidad_maxima - 1.0)
 
     def _hilo_tts(self, idioma: str) -> None:
-        motor = self.motores[idioma]
         cola = self._colas_tts[idioma]
         while self._corriendo:
             item = cola.get()
@@ -229,6 +228,11 @@ class Pipeline:
                     idioma, tirado,
                 )
 
+            # El motor se busca en cada frase y no una vez al arrancar el
+            # hilo: cambiar_voz() reemplaza la entrada del diccionario, y con
+            # una referencia guardada el canal seguiria hablando con la voz
+            # vieja para siempre.
+            motor = self.motores[idioma]
             t0 = time.perf_counter()
             try:
                 audio = motor.sintetizar(texto, self._velocidad_para(idioma))
