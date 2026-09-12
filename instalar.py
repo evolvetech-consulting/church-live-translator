@@ -274,8 +274,10 @@ def verificar() -> None:
 
 
 def resumen(falta_clave: bool) -> None:
-    py = ".venv\\Scripts\\python" if ES_WINDOWS else ".venv/bin/python"
-    arranque = "iniciar.bat" if ES_WINDOWS else "./iniciar.command"
+    # El ".\" adelante es obligatorio en PowerShell, que no ejecuta rutas
+    # relativas sin el; en cmd.exe tambien funciona, asi que sirve para los dos.
+    py = ".\\.venv\\Scripts\\python" if ES_WINDOWS else ".venv/bin/python"
+    arranque = ".\\iniciar.bat" if ES_WINDOWS else "./iniciar.command"
     print(f"\n{C.ok}{'=' * 62}{C.fin}")
     print(f"{C.ok}  Instalación terminada{C.fin}")
     print(f"{C.ok}{'=' * 62}{C.fin}\n")

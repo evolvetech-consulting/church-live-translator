@@ -126,12 +126,16 @@ python3.12 -m venv .venv
 .venv/bin/python -m piper.download_voices en_US-lessac-medium --data-dir voces
 ```
 
-```bat
-REM Windows (no hace falta portaudio: viene con sounddevice)
+```powershell
+# Windows (no hace falta portaudio: viene con sounddevice)
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python -m piper.download_voices en_US-lessac-medium --data-dir voces
+.\.venv\Scripts\pip install -r requirements.txt
+.\.venv\Scripts\python -m piper.download_voices en_US-lessac-medium --data-dir voces
 ```
+
+> En Windows los comandos van con `.\` adelante. PowerShell no ejecuta rutas
+> relativas sin eso y falla con *"El módulo '.venv' no pudo cargarse"*; en
+> `cmd.exe` el `.\` también funciona, así que sirve para los dos.
 
 **Si la PC tiene placa NVIDIA**, instalá CUDA y poné `dispositivo: "cuda"` en la
 sección `stt`, y probá `medium` o `large-v3`.
