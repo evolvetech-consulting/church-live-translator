@@ -485,6 +485,7 @@ esperando portugués).
 | `traductor/paginas/` | HTML del panel y de la vista congregación |
 | `tools/dispositivos.py` | Lista las placas de audio |
 | `tools/canales.py` | Medidor por canal: cuál trae el micrófono del púlpito |
+| `tools/diagnostico.py` | Corre la cadena completa y dice en qué etapa se corta |
 | `tools/probar_traduccion.py` | Verifica la clave y el modelo del proveedor |
 | `tools/simulacro.py` | Prueba el pipeline sin hardware |
 | `tools/bajar_culto.py` | Baja un tramo de un culto de YouTube para probar |
