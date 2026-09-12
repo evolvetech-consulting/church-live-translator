@@ -114,6 +114,15 @@ hecho y saltea.
 Después: **`iniciar.bat`** (o el acceso directo del Escritorio) arranca todo y
 abre el panel en el navegador.
 
+### Actualizar
+
+Doble clic en **`actualizar.bat`** (Windows) o `.venv/bin/python actualizar.py`
+(macOS). Baja la última versión del código y no toca nada de lo configurado en
+esa computadora: `.env`, `config.yaml`, `glosario.yaml`, las voces bajadas y los
+registros de los cultos quedan como están.
+
+No hace falta tener git instalado.
+
 ### A mano
 
 Si preferís hacerlo paso a paso:
@@ -458,6 +467,7 @@ esperando portugués).
 | Archivo | Qué hace |
 |---|---|
 | `instalar.bat` / `.command` | Instalador de doble clic (la lógica está en `instalar.py`) |
+| `actualizar.bat` / `.py` | Traer la última versión sin git |
 | `main.py` | Arranque y panel del operador |
 | `config.yaml` | Toda la configuración |
 | `config.mac.yaml` | Configuración para probar en una laptop |
@@ -474,6 +484,7 @@ esperando portugués).
 | `traductor/servidor.py` | Servidor web (panel + subtítulos) |
 | `traductor/paginas/` | HTML del panel y de la vista congregación |
 | `tools/dispositivos.py` | Lista las placas de audio |
+| `tools/canales.py` | Medidor por canal: cuál trae el micrófono del púlpito |
 | `tools/probar_traduccion.py` | Verifica la clave y el modelo del proveedor |
 | `tools/simulacro.py` | Prueba el pipeline sin hardware |
 | `tools/bajar_culto.py` | Baja un tramo de un culto de YouTube para probar |
