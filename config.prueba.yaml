@@ -24,13 +24,17 @@ entrada:
   # mixer, volver a correr:
   #   .venv\Scripts\python -m tools.canales -d "IN 1-8"
   canal: 7
-  # El direct out del mixer suele llegar mas bajo que un microfono directo.
-  # Se ajusta en vivo desde el panel mirando el medidor.
-  ganancia: 2.0
+  # El direct out del mixer llega bajo: medido, alrededor de -33 dB. Esto lo
+  # lleva a una zona que el detector de voz reconoce sin problema. Se ajusta
+  # en vivo desde el panel mirando el medidor, y lo correcto a la larga es
+  # subir el nivel del direct out en la consola en vez de multiplicar aca.
+  ganancia: 8.0
 
 vad:
   motor: "silero"
-  umbral: 0.5
+  # Mas sensible que el valor por defecto (0.5), porque la señal del mixer
+  # viene baja. Si engancha ruido de sala, subirlo.
+  umbral: 0.35
   silencio_fin_ms: 700
   silencio_largo_ms: 1600
   min_frase_s: 3.0

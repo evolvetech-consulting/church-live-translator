@@ -431,7 +431,9 @@ class Pipeline:
         Se aplica al instante y sin cortar nada: es un multiplicador, no
         reabre ningun stream. `destino` es "entrada" o el codigo de idioma.
         """
-        valor = max(0.0, min(float(valor), 4.0))
+        # Hasta x12: un direct out de mixer puede llegar 20 dB por debajo de
+        # lo que entrega un microfono conectado directo.
+        valor = max(0.0, min(float(valor), 12.0))
         if destino == "entrada":
             self.cfg.entrada.ganancia = valor
         elif destino in self.ruteador.buffers:
