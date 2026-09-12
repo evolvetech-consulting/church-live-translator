@@ -24,16 +24,16 @@ entrada:
   # mixer, volver a correr:
   #   .venv\Scripts\python -m tools.canales -d "IN 1-8"
   canal: 7
-  # El direct out del mixer llega bajo: medido, alrededor de -33 dB. Esto lo
-  # lleva a una zona que el detector de voz reconoce sin problema. Se ajusta
-  # en vivo desde el panel mirando el medidor, y lo correcto a la larga es
-  # subir el nivel del direct out en la consola en vez de multiplicar aca.
-  ganancia: 8.0
+  # Medido en un culto real: con x2 el pico queda en -20 dB y el promedio en
+  # -38 dB, y el detector reconoce el 34% del audio como voz. Anda bien. Si
+  # cambia el nivel del direct out en la consola, se ajusta desde el panel.
+  ganancia: 2.0
 
 vad:
   motor: "silero"
-  # Mas sensible que el valor por defecto (0.5), porque la señal del mixer
-  # viene baja. Si engancha ruido de sala, subirlo.
+  # 0.35 es mas sensible que el valor por defecto (0.5). Con la señal del
+  # mixer a -20 dB probablemente 0.5 tambien ande; si engancha ruido de sala,
+  # subirlo.
   umbral: 0.35
   silencio_fin_ms: 700
   silencio_largo_ms: 1600
@@ -43,6 +43,12 @@ vad:
   pre_roll_ms: 300
 
 stt:
+  # La GPU de esta PC funciona (cuda/float16), asi que conviene probar un
+  # modelo mas grande: es donde esta la mejora de calidad que falta, sobre
+  # todo en nombres propios biblicos.
+  #   small     -> rapido, lo que se probo el 12/09
+  #   medium    -> mejor, ~1.5 GB de descarga
+  #   large-v3  -> el mejor, ~3 GB de descarga
   modelo: "small"
   idioma: "es"
   dispositivo: "auto"
