@@ -9,15 +9,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from faster_whisper import WhisperModel
-
-log = logging.getLogger(__name__)
-
-# Whisper acepta un contexto de max_length // 2 - 1 tokens y descarta el resto
-# en silencio. Dejamos un margen para no quedar justo en el borde.
-LIMITE_CONTEXTO = 448 // 2 - 1
-MARGEN = 10
-
 
 def preparar_cuda_windows() -> list[str]:
     """Hace visibles las DLL de CUDA que instala pip.
@@ -30,6 +21,11 @@ def preparar_cuda_windows() -> list[str]:
 
     Se recorre el arbol buscando carpetas que contengan DLL en vez de asumir
     que estan en 'bin': la estructura cambia entre paquetes y entre versiones.
+
+    Se registran de dos formas porque una sola no alcanza: add_dll_directory
+    cubre las cargas explicitas, y el PATH cubre las dependencias que Windows
+    resuelve por su cuenta al abrir una DLL que depende de otra, que es
+    justamente como CTranslate2 llega a cuBLAS.
     """
     if platform.system() != "Windows":
         return []
@@ -60,10 +56,27 @@ def preparar_cuda_windows() -> list[str]:
             vistas.add(carpeta)
             try:
                 os.add_dll_directory(str(carpeta))
-                agregadas.append(str(carpeta))
             except OSError:
-                pass
+                continue
+            os.environ["PATH"] = str(carpeta) + os.pathsep + os.environ.get("PATH", "")
+            agregadas.append(str(carpeta))
     return agregadas
+
+
+# Se llama ANTES de importar faster_whisper, y no dentro de una funcion: al
+# importarse, CTranslate2 carga su extension nativa y ahi queda fijada la ruta
+# de busqueda de DLL. Prepararla despues no sirve de nada, que es exactamente
+# por que la GPU no arrancaba aunque los paquetes estuvieran instalados.
+CARPETAS_CUDA = preparar_cuda_windows()
+
+from faster_whisper import WhisperModel  # noqa: E402
+
+log = logging.getLogger(__name__)
+
+# Whisper acepta un contexto de max_length // 2 - 1 tokens y descarta el resto
+# en silencio. Dejamos un margen para no quedar justo en el borde.
+LIMITE_CONTEXTO = 448 // 2 - 1
+MARGEN = 10
 
 
 def _hay_cuda() -> bool:
@@ -79,11 +92,6 @@ def _elegir_backend(dispositivo: str, tipo_computo: str) -> tuple[str, str]:
     """Resuelve 'auto' al mejor backend disponible en esta maquina."""
     if dispositivo != "auto":
         return dispositivo, ("int8" if tipo_computo == "auto" else tipo_computo)
-
-    # Antes de preguntar por la GPU hay que poder cargar sus librerias.
-    agregadas = preparar_cuda_windows()
-    if agregadas:
-        log.debug("DLL de CUDA encontradas en: %s", ", ".join(agregadas))
 
     if _hay_cuda():
         return "cuda", ("float16" if tipo_computo == "auto" else tipo_computo)
@@ -136,7 +144,7 @@ class Transcriptor:
                 "  Para dejar de intentarlo, poner stt.dispositivo: \"cpu\" "
                 "en config.yaml.",
                 cfg_stt.modelo,
-                len(preparar_cuda_windows()) or "0",
+                len(CARPETAS_CUDA) or "0",
             )
             dispositivo, computo = "cpu", "int8"
             self.modelo = WhisperModel(
