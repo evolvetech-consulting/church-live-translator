@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
+import platform
+import sys
+from pathlib import Path
 
 import numpy as np
 from faster_whisper import WhisperModel
@@ -13,6 +17,35 @@ log = logging.getLogger(__name__)
 # en silencio. Dejamos un margen para no quedar justo en el borde.
 LIMITE_CONTEXTO = 448 // 2 - 1
 MARGEN = 10
+
+
+def preparar_cuda_windows() -> list[str]:
+    """Hace visibles las DLL de CUDA que instala pip.
+
+    En Windows, `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` deja las
+    DLL en site-packages/nvidia/*/bin, que no esta en la ruta de busqueda del
+    sistema. Sin esto, los paquetes quedan instalados pero CTranslate2 no los
+    encuentra y falla con "cublas64_12.dll is not found": todo parece bien y
+    la GPU nunca se usa.
+    """
+    if platform.system() != "Windows":
+        return []
+
+    agregadas = []
+    raices = {Path(p) / "nvidia" for p in sys.path if p}
+    for raiz in raices:
+        if not raiz.is_dir():
+            continue
+        for paquete in raiz.iterdir():
+            carpeta = paquete / "bin"
+            if not carpeta.is_dir():
+                continue
+            try:
+                os.add_dll_directory(str(carpeta))
+                agregadas.append(str(carpeta))
+            except OSError:
+                pass
+    return agregadas
 
 
 def _hay_cuda() -> bool:
@@ -28,6 +61,11 @@ def _elegir_backend(dispositivo: str, tipo_computo: str) -> tuple[str, str]:
     """Resuelve 'auto' al mejor backend disponible en esta maquina."""
     if dispositivo != "auto":
         return dispositivo, ("int8" if tipo_computo == "auto" else tipo_computo)
+
+    # Antes de preguntar por la GPU hay que poder cargar sus librerias.
+    agregadas = preparar_cuda_windows()
+    if agregadas:
+        log.debug("DLL de CUDA encontradas en: %s", ", ".join(agregadas))
 
     if _hay_cuda():
         return "cuda", ("float16" if tipo_computo == "auto" else tipo_computo)
