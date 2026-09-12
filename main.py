@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import os
 import signal
 import sys
@@ -30,8 +31,17 @@ consola = Console()
 
 
 def barra(nivel: float, ancho: int = 22) -> Text:
-    """Medidor de nivel de audio, para ver de un vistazo si entra señal."""
-    llenos = int(min(max(nivel, 0.0), 1.0) * ancho)
+    """Medidor de nivel de audio, para ver de un vistazo si entra señal.
+
+    Escala logaritmica, igual que la del panel web: en lineal la voz normal
+    apenas mueve la barra y no se distingue "bajo" de "correcto". El rango
+    util es de -60 dB a 0.
+    """
+    if nivel <= 0:
+        frac = 0.0
+    else:
+        frac = max(0.0, min(1.0, (20 * math.log10(nivel) + 60) / 60))
+    llenos = int(frac * ancho)
     color = "red" if nivel > 0.95 else "yellow" if nivel > 0.7 else "green"
     t = Text()
     t.append("#" * llenos, style=color)
@@ -54,9 +64,12 @@ class Panel_:
             if self.p.traductor.usando_fallback
             else Text(self.p.traductor.proveedor.capitalize(), style="bold green")
         )
+        pico = self.p.captura.pico
+        db = f"{20 * math.log10(pico):5.0f} dB" if pico > 0.0005 else "   -- dB"
         t = Text()
-        t.append("entrada  "); t.append_text(barra(self.p.captura.pico))
-        t.append(f"   {self.cfg.entrada.dispositivo or 'defecto'}")
+        t.append("entrada  "); t.append_text(barra(pico))
+        t.append(f" {db}", style="grey50")
+        t.append(f"  {self.cfg.entrada.dispositivo or 'defecto'}")
         t.append("     traduccion  "); t.append_text(modo)
         t.append(f"     {int(transcurrido // 60):02d}:{int(transcurrido % 60):02d}")
         t.append(f"     frases: {len(self.p.eventos)}")
