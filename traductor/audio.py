@@ -8,6 +8,7 @@ habla. Whisper recibe frases completas, transcribe mejor y responde antes.
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 from collections import deque
@@ -16,6 +17,8 @@ from dataclasses import dataclass
 import numpy as np
 import sounddevice as sd
 import soxr
+
+log = logging.getLogger(__name__)
 
 # Whisper trabaja a 16 kHz; Silero VAD tambien. Todo el pipeline interno
 # usa esta frecuencia y float32 mono.
@@ -352,6 +355,17 @@ class CapturaAudio:
             callback=self._callback,
         )
         self._stream.start()
+
+        # Windows lista la misma placa varias veces, una por cada API de audio
+        # (MME, DirectSound, WASAPI), y no todas entregan la misma cantidad de
+        # canales. Dejar constancia de cual se abrio de verdad evita perder
+        # media hora buscando por que no entra señal.
+        info = sd.query_devices(self.dispositivo, "input")
+        log.info(
+            "Entrada: %s [%s] · %d canal(es) disponibles, leyendo el %d",
+            info["name"], sd.query_hostapis(info["hostapi"])["name"],
+            info["max_input_channels"], self.cfg.canal,
+        )
 
     def _cerrar_stream(self) -> None:
         if self._stream is not None:

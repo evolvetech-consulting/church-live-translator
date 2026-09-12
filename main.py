@@ -52,7 +52,7 @@ class Panel_:
         modo = (
             Text("OFFLINE (Whisper)", style="bold yellow")
             if self.p.traductor.usando_fallback
-            else Text("Claude", style="bold green")
+            else Text(self.p.traductor.proveedor.capitalize(), style="bold green")
         )
         t = Text()
         t.append("entrada  "); t.append_text(barra(self.p.captura.pico))
@@ -171,7 +171,8 @@ def main() -> int:
         consola.print(
             "[yellow]No encuentro ANTHROPIC_API_KEY.[/yellow] Va a funcionar en "
             "modo offline (Whisper), con calidad menor.\n"
-            "Para usar Claude: copiar [cyan].env.ejemplo[/cyan] a [cyan].env[/cyan] "
+            f"Para usar {cfg.traduccion.proveedor}: copiar [cyan].env.ejemplo[/cyan] "
+            "a [cyan].env[/cyan] "
             "y pegar la clave adentro.\n"
         )
 
