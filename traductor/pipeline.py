@@ -105,6 +105,11 @@ class Pipeline:
         # si se puede descartar al volver: pertenece al culto anterior.
         self._generacion = 0
         self.eventos: list[Evento] = []
+        # Ultimo error de una etapa, para que el panel lo muestre. Un fallo que
+        # se repite en cada frase se ve desde afuera igual que "no entra
+        # audio", y son dos problemas completamente distintos.
+        self.ultimo_fallo = ""
+        self.fallos_stt = 0
         self.descartado_s: dict[str, float] = {i: 0.0 for i in self.idiomas}
         self._registro = None
 
@@ -158,9 +163,17 @@ class Pipeline:
             t0 = time.perf_counter()
             try:
                 texto = self.transcriptor.transcribir(frase.audio)
-            except Exception:
-                log.exception("Fallo la transcripcion de la frase #%d", frase.seq)
+            except Exception as e:
+                self.fallos_stt += 1
+                self.ultimo_fallo = f"Whisper: {e}"
+                if self.fallos_stt in (1, 5, 25):
+                    log.exception(
+                        "Fallo la transcripcion (%d veces seguidas)", self.fallos_stt
+                    )
                 continue
+            self.fallos_stt = 0
+            if self.ultimo_fallo.startswith("Whisper"):
+                self.ultimo_fallo = ""
             if not texto or generacion != self._generacion:
                 continue
 

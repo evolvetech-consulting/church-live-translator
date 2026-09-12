@@ -84,6 +84,7 @@ class ServidorWeb:
             "modo": "claude",
             "frases": 0,
             "pausado": False,
+            "fallo": "",
             "fuente": {"archivo": False, "nombre": "", "terminado": False},
             "canales": {},
             "promedios": {},
@@ -97,6 +98,7 @@ class ServidorWeb:
         estado["modo"] = "offline" if p.traductor.usando_fallback else "claude"
         estado["frases"] = len(p.eventos)
         estado["pausado"] = p.pausado
+        estado["fallo"] = p.ultimo_fallo
         estado["fuente"] = {
             "archivo": hasattr(p.captura, "url"),
             "nombre": self.cfg.entrada.dispositivo or "micrófono",

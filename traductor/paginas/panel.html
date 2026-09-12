@@ -215,6 +215,7 @@
     <a class="lnk" href="/subtitulos" target="_blank">Vista congregación ↗</a>
   </div>
 </div>
+<div id="fallo" style="display:none;background:#3a1416;border-bottom:1px solid #6b2229;color:#ff9c92;font-size:12.5px;padding:8px 20px;text-align:center"></div>
 <div id="banda">Traducción pausada — nadie escucha nada por los receptores. Si venías reproduciendo un video, también quedó en pausa.</div>
 
 <main>
@@ -408,6 +409,12 @@ function pintarEstado(e){
     $('src-name').innerHTML = f.terminado
       ? '<b>' + esc(f.nombre) + '</b> — terminó'
       : 'Reproduciendo <b>' + esc(f.nombre) + '</b>';
+
+  // Un fallo que se repite en cada frase se ve igual que "no entra audio"
+  // si no se dice en ningun lado.
+  const f2 = $('fallo');
+  f2.style.display = e.fallo ? '' : 'none';
+  if(e.fallo) f2.textContent = 'Hay un problema procesando el audio — ' + e.fallo;
 
   document.body.classList.toggle('pausado', !!e.pausado);
   const b = $('btn-pausa');

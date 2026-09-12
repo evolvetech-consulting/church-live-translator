@@ -15,18 +15,22 @@ LIMITE_CONTEXTO = 448 // 2 - 1
 MARGEN = 10
 
 
+def _hay_cuda() -> bool:
+    try:
+        import ctranslate2
+
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
+
+
 def _elegir_backend(dispositivo: str, tipo_computo: str) -> tuple[str, str]:
     """Resuelve 'auto' al mejor backend disponible en esta maquina."""
     if dispositivo != "auto":
         return dispositivo, ("int8" if tipo_computo == "auto" else tipo_computo)
 
-    try:
-        import ctranslate2
-
-        if ctranslate2.get_cuda_device_count() > 0:
-            return "cuda", ("float16" if tipo_computo == "auto" else tipo_computo)
-    except Exception:
-        pass
+    if _hay_cuda():
+        return "cuda", ("float16" if tipo_computo == "auto" else tipo_computo)
 
     # CPU. int8 es varias veces mas rapido que float32 y la diferencia de
     # calidad no se nota en voz de pulpito. En Apple Silicon esto es lo unico
@@ -34,12 +38,27 @@ def _elegir_backend(dispositivo: str, tipo_computo: str) -> tuple[str, str]:
     return "cpu", ("int8" if tipo_computo == "auto" else tipo_computo)
 
 
+def _funciona(modelo) -> bool:
+    """Prueba una transcripcion de verdad antes de confiar en el backend.
+
+    Tener una placa NVIDIA no alcanza: si faltan las librerias de CUDA
+    (cuBLAS, cuDNN), el modelo se construye sin quejarse y recien explota al
+    transcribir la primera frase. En un culto eso significa que todo parece
+    andar y no sale ni una traduccion.
+    """
+    try:
+        silencio = np.zeros(16000, dtype=np.float32)
+        list(modelo.transcribe(silencio, beam_size=1, vad_filter=False)[0])
+        return True
+    except Exception as e:
+        log.warning("El backend no funciona (%s).", e)
+        return False
+
+
 class Transcriptor:
     def __init__(self, cfg_stt, contexto_glosario: str = ""):
         self.cfg = cfg_stt
         dispositivo, computo = _elegir_backend(cfg_stt.dispositivo, cfg_stt.tipo_computo)
-        self.dispositivo = dispositivo
-        self.computo = computo
 
         self.modelo = WhisperModel(
             cfg_stt.modelo,
@@ -47,6 +66,24 @@ class Transcriptor:
             compute_type=computo,
             cpu_threads=0,  # 0 = que decida CTranslate2 segun la maquina
         )
+
+        # Si la GPU no termina de funcionar, se cae a CPU en vez de fallar en
+        # cada frase durante todo el culto.
+        if dispositivo == "cuda" and not _funciona(self.modelo):
+            log.warning(
+                "La GPU no esta lista (faltan las librerias de CUDA). Sigo con la "
+                "CPU, que anda bien con el modelo %s. Para usar la placa, instalar "
+                "cuBLAS y cuDNN de NVIDIA, o poner stt.dispositivo: \"cpu\" en "
+                "config.yaml para no volver a intentarlo.",
+                cfg_stt.modelo,
+            )
+            dispositivo, computo = "cpu", "int8"
+            self.modelo = WhisperModel(
+                cfg_stt.modelo, device=dispositivo, compute_type=computo, cpu_threads=0
+            )
+
+        self.dispositivo, self.computo = dispositivo, computo
+        log.info("Whisper %s en %s/%s", cfg_stt.modelo, dispositivo, computo)
 
         # Sesgamos el reconocimiento hacia el vocabulario de la iglesia:
         # nombres propios, terminos teologicos, libros de la Biblia. Es lo que
