@@ -1,0 +1,77 @@
+# =============================================================
+#  Configuracion de PRUEBA para la PC de la iglesia.
+#
+#      .venv\Scripts\python main.py -c config.prueba.yaml
+#
+#  Entrada: el canal del microfono del predicador, por USB desde
+#  el mixer. Salida: los auriculares o parlantes de la PC.
+#
+#  >>> NO TOCA EL SONIDO DE LA SALA. <<<
+#  La traduccion NO sale por el mixer ni por los transmisores.
+#  Sirve para mirar la transcripcion en el panel durante un culto
+#  real, sin riesgo de que se escuche algo donde no debe.
+#
+#  Cuando esto funcione, se pasa a config.yaml, que si rutea al
+#  transmisor.
+# =============================================================
+
+entrada:
+  # Placa USB del mixer Behringer. Alcanza con una parte del nombre.
+  dispositivo: "IN 1-8"
+  frecuencia: 48000
+  # Canal del microfono del predicador. Confirmado con tools/canales.py:
+  # es el unico mono con señal mientras se predica. Si cambia el ruteo del
+  # mixer, volver a correr:
+  #   .venv\Scripts\python -m tools.canales -d "IN 1-8"
+  canal: 7
+  # El direct out del mixer suele llegar mas bajo que un microfono directo.
+  # Se ajusta en vivo desde el panel mirando el medidor.
+  ganancia: 2.0
+
+vad:
+  motor: "silero"
+  umbral: 0.5
+  silencio_fin_ms: 700
+  silencio_largo_ms: 1600
+  min_frase_s: 3.0
+  min_voz_ms: 400
+  max_frase_s: 14.0
+  pre_roll_ms: 300
+
+stt:
+  modelo: "small"
+  idioma: "es"
+  dispositivo: "auto"
+  tipo_computo: "auto"
+  contexto_inicial: ""
+
+traduccion:
+  proveedor: "gemini"
+  modelo: "gemini-2.5-flash"
+  frases_contexto: 4
+  timeout_s: 6.0
+
+salidas:
+  - idioma: "en"
+    nombre: "Ingles"
+    # null = la salida por defecto de Windows (auriculares/parlantes de la PC).
+    # A proposito: durante la prueba la traduccion NO tiene que llegar ni al
+    # mixer ni a los transmisores.
+    dispositivo: null
+    canal: 0
+    voz: "en_US-lessac-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+
+latencia:
+  umbral_aceleracion_s: 4.0
+  umbral_maximo_s: 12.0
+  velocidad_maxima: 1.25
+  descartar_sobre_s: 25.0
+
+web:
+  activo: true
+  puerto: 8080
+
+registro:
+  carpeta: "registros"
