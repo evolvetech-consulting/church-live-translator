@@ -131,14 +131,14 @@ Si preferís hacerlo paso a paso:
 # macOS
 brew install python@3.12 portaudio
 python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m piper.download_voices en_US-lessac-medium --data-dir voces
 ```
 
 ```powershell
 # Windows (no hace falta portaudio: viene con sounddevice)
 python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt
+.\.venv\Scripts\python -m pip install -r requirements.txt
 .\.venv\Scripts\python -m piper.download_voices en_US-lessac-medium --data-dir voces
 ```
 
@@ -146,8 +146,25 @@ python -m venv .venv
 > relativas sin eso y falla con *"El módulo '.venv' no pudo cargarse"*; en
 > `cmd.exe` el `.\` también funciona, así que sirve para los dos.
 
-**Si la PC tiene placa NVIDIA**, instalá CUDA y poné `dispositivo: "cuda"` en la
-sección `stt`, y probá `medium` o `large-v3`.
+> **Invocá todo como `python -m <módulo>`, nunca los `.exe` sueltos** (`pip`,
+> `piper`...). Esos lanzadores llevan adentro la ruta absoluta de cuando se creó
+> el entorno, así que si alguna vez movés o renombrás la carpeta dejan de
+> funcionar con *"Unable to create process"*. `python.exe` sigue andando igual.
+
+**Si la PC tiene placa NVIDIA**, las librerías que faltan se instalan como
+paquetes de Python, sin bajar el toolkit de CUDA:
+
+```powershell
+.\.venv\Scripts\python -m pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+```
+
+Con eso el backend automático pasa a `cuda/float16` y Whisper se vuelve varias
+veces más rápido, lo que habilita `medium` o `large-v3` — bastante mejores con
+los nombres propios y las citas bíblicas.
+
+> Tener la placa no alcanza: si faltan esas librerías, el modelo se carga sin
+> quejarse y recién falla al transcribir la primera frase. La aplicación lo
+> verifica al arrancar y se cae a CPU sola si no está listo.
 
 > Medilo antes de asumir que mejora. Sobre audio real de un culto, `medium`
 > tardó 3x más que `small` sin ganar precisión: las únicas diferencias eran
