@@ -23,23 +23,41 @@ def preparar_cuda_windows() -> list[str]:
     """Hace visibles las DLL de CUDA que instala pip.
 
     En Windows, `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` deja las
-    DLL en site-packages/nvidia/*/bin, que no esta en la ruta de busqueda del
-    sistema. Sin esto, los paquetes quedan instalados pero CTranslate2 no los
-    encuentra y falla con "cublas64_12.dll is not found": todo parece bien y
-    la GPU nunca se usa.
+    DLL dentro de site-packages/nvidia/, que no esta en la ruta de busqueda del
+    sistema. Sin esto los paquetes quedan instalados pero CTranslate2 no los
+    encuentra y falla con "cublas64_12.dll is not found": todo parece bien y la
+    GPU nunca se usa.
+
+    Se recorre el arbol buscando carpetas que contengan DLL en vez de asumir
+    que estan en 'bin': la estructura cambia entre paquetes y entre versiones.
     """
     if platform.system() != "Windows":
         return []
 
+    raices = []
+    try:
+        import site
+
+        raices += [Path(d) for d in site.getsitepackages()]
+        usuario = site.getusersitepackages()
+        if usuario:
+            raices.append(Path(usuario))
+    except Exception:
+        pass
+    raices += [Path(d) for d in sys.path if d]
+
     agregadas = []
-    raices = {Path(p) / "nvidia" for p in sys.path if p}
+    vistas = set()
     for raiz in raices:
-        if not raiz.is_dir():
+        nvidia = raiz / "nvidia"
+        if not nvidia.is_dir() or nvidia in vistas:
             continue
-        for paquete in raiz.iterdir():
-            carpeta = paquete / "bin"
-            if not carpeta.is_dir():
+        vistas.add(nvidia)
+        for dll in nvidia.rglob("*.dll"):
+            carpeta = dll.parent
+            if carpeta in vistas:
                 continue
+            vistas.add(carpeta)
             try:
                 os.add_dll_directory(str(carpeta))
                 agregadas.append(str(carpeta))
@@ -109,11 +127,16 @@ class Transcriptor:
         # cada frase durante todo el culto.
         if dispositivo == "cuda" and not _funciona(self.modelo):
             log.warning(
-                "La GPU no esta lista (faltan las librerias de CUDA). Sigo con la "
-                "CPU, que anda bien con el modelo %s. Para usar la placa, instalar "
-                "cuBLAS y cuDNN de NVIDIA, o poner stt.dispositivo: \"cpu\" en "
-                "config.yaml para no volver a intentarlo.",
+                "La GPU no esta lista. Sigo con la CPU, que anda bien con el "
+                "modelo %s.\n"
+                "  Carpetas de CUDA encontradas: %s\n"
+                "  Si dice 0, faltan los paquetes:\n"
+                "    .\\.venv\\Scripts\\python -m pip install "
+                "nvidia-cublas-cu12 nvidia-cudnn-cu12\n"
+                "  Para dejar de intentarlo, poner stt.dispositivo: \"cpu\" "
+                "en config.yaml.",
                 cfg_stt.modelo,
+                len(preparar_cuda_windows()) or "0",
             )
             dispositivo, computo = "cpu", "int8"
             self.modelo = WhisperModel(
