@@ -10,8 +10,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+import logging
+
 import numpy as np
 from piper import PiperVoice, SynthesisConfig
+
+log = logging.getLogger(__name__)
 
 CARPETA_VOCES = Path("voces")
 
@@ -95,11 +99,26 @@ class MotorTTS:
         )
         self.frecuencia = self._voice.config.sample_rate
 
+        # Algunas voces (la ucraniana, por ejemplo) no pasan por espeak: son
+        # de tipo TEXT, cada caracter se mapea directo a un id, y su tabla
+        # trae solo minusculas. Sin bajar el texto, cada mayuscula se descarta
+        # sin avisar y las frases pierden su primera letra.
+        #
+        # Hay que mirar el tipo y no la tabla: la de una voz espeak contiene
+        # simbolos IPA, que tampoco tienen mayusculas, y daria un falso
+        # positivo. En espeak la capitalizacion si importa (siglas, enfasis).
+        tipo = getattr(self._voice.config, "phoneme_type", None)
+        self._bajar_texto = str(getattr(tipo, "name", tipo)).upper() == "TEXT"
+        if self._bajar_texto:
+            log.debug("La voz %s no tiene mayúsculas en su tabla: se bajan.", voz)
+
     def sintetizar(self, texto: str, velocidad: float = 1.0) -> np.ndarray:
         """Devuelve float32 mono a self.frecuencia."""
         texto = texto.strip()
         if not texto:
             return np.empty(0, dtype=np.float32)
+        if self._bajar_texto:
+            texto = texto.lower()
 
         # Piper usa length_scale: cuanto MAS grande, mas lento. Es el
         # inverso de "velocidad".

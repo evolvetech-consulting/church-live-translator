@@ -1,0 +1,105 @@
+# =============================================================
+#  Cuatro idiomas, cada uno por un canal de salida del X-USB.
+#
+#      .venv\Scripts\python main.py -c config.4idiomas.yaml
+#
+#  La traduccion vuelve al mixer por USB y desde la consola se
+#  rutea cada canal a su bus, y cada bus a su transmisor.
+#  Sin un solo cable analogico nuevo.
+#
+#  >>> ANTES DE USAR <<<
+#  1. Confirmar el nombre exacto de la salida del X-USB:
+#         .venv\Scripts\python -m tools.dispositivos
+#     Poner ese nombre (o una parte) en cada `dispositivo`.
+#  2. Confirmar que tenga al menos 4 canales de salida.
+#  3. En la consola: que los retornos USB NO esten en la mezcla
+#     principal, o la sala entera escucha las traducciones.
+# =============================================================
+
+entrada:
+  # Canal del microfono del predicador, confirmado con tools/canales.py.
+  dispositivo: "IN 1-8"
+  frecuencia: 48000
+  canal: 7
+  ganancia: 2.0
+
+vad:
+  motor: "silero"
+  umbral: 0.35
+  silencio_fin_ms: 700
+  silencio_largo_ms: 1600
+  min_frase_s: 3.0
+  min_voz_ms: 400
+  max_frase_s: 14.0
+  pre_roll_ms: 300
+
+stt:
+  # La GPU de esta PC funciona. Con cuatro idiomas conviene mas que nunca
+  # un modelo bueno: un error de reconocimiento se propaga a los cuatro.
+  #   small -> lo probado el 12/09   medium -> mejor   large-v3 -> el mejor
+  modelo: "small"
+  idioma: "es"
+  dispositivo: "auto"
+  tipo_computo: "auto"
+  contexto_inicial: ""
+
+traduccion:
+  # Una sola llamada devuelve los cuatro idiomas: no cuesta cuatro veces
+  # mas ni tarda cuatro veces mas, y ademas salen coherentes entre si.
+  proveedor: "gemini"
+  modelo: "gemini-2.5-flash"
+  frases_contexto: 4
+  timeout_s: 6.0
+
+# -------------------------------------------------------------
+# Un canal fisico por idioma. Dos idiomas NO pueden compartir
+# canal: se pisarian el audio (el programa lo rechaza).
+# -------------------------------------------------------------
+salidas:
+  - idioma: "en"
+    nombre: "Ingles"
+    dispositivo: "X-USB"
+    canal: 0
+    voz: "en_US-lessac-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+
+  - idioma: "pt"
+    nombre: "Portugues"
+    dispositivo: "X-USB"
+    canal: 1
+    voz: "pt_BR-faber-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+
+  - idioma: "fr"
+    nombre: "Frances"
+    dispositivo: "X-USB"
+    canal: 2
+    voz: "fr_FR-siwis-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+
+  - idioma: "uk"
+    nombre: "Ucraniano"
+    dispositivo: "X-USB"
+    canal: 3
+    # Unica voz ucraniana de calidad media; las otras son x_low o high.
+    # No pasa por espeak, asi que el programa le baja el texto a minusculas
+    # (su tabla de caracteres no tiene mayusculas).
+    voz: "uk_UA-ukrainian_tts-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+
+latencia:
+  umbral_aceleracion_s: 4.0
+  umbral_maximo_s: 12.0
+  velocidad_maxima: 1.25
+  descartar_sobre_s: 25.0
+
+web:
+  activo: true
+  puerto: 8080
+
+registro:
+  carpeta: "registros"

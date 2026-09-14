@@ -299,9 +299,12 @@ class Pipeline:
     PRUEBAS = {
         "en": "This is the English channel. Testing, one, two, three. "
               "If you can hear this clearly, the level is correct.",
-        "pt": "Este e o canal de portugues. Teste, um, dois, tres. "
-              "Se voce ouve com clareza, o nivel esta correto.",
-        "fr": "Ceci est le canal francais. Test, un, deux, trois.",
+        "pt": "Este é o canal de português. Teste: um, dois, três. "
+              "Se você ouve com clareza, o nível está correto.",
+        "fr": "Ceci est le canal francais. Test, un, deux, trois. "
+              "Si vous entendez clairement, le niveau est correct.",
+        "uk": "Це український канал. Перевірка: один, два, три. "
+              "Якщо ви чуєте чітко, рівень правильний.",
         "it": "Questo e il canale italiano. Prova, uno, due, tre.",
         "de": "Dies ist der deutsche Kanal. Test, eins, zwei, drei.",
     }

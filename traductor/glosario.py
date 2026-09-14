@@ -9,10 +9,12 @@ import yaml
 
 NOMBRES_IDIOMA = {
     "en": "ingles",
-    "pt": "portugues",
+    "pt": "portugues (de Brasil)",
     "fr": "frances",
+    "uk": "ucraniano",
     "it": "italiano",
     "de": "aleman",
+    "ru": "ruso",
     "zh": "chino mandarin",
     "ko": "coreano",
     "ht": "criollo haitiano",

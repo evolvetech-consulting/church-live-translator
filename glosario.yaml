@@ -27,49 +27,112 @@ nombres:
 
 # Terminos que SIEMPRE se traducen de una manera determinada.
 # Formato:  termino en español: traduccion por idioma
+#
+# Al traductor solo se le pasan los idiomas que esten configurados como
+# salida, asi que sobran los que no uses. Esta seccion NO tiene el limite
+# de tamaño que si tiene `vocabulario`.
 terminos:
   ofrenda:
     en: offering
+    pt: oferta
+    fr: offrande
+    uk: пожертва
   diezmo:
     en: tithe
+    pt: dízimo
+    fr: dîme
+    uk: десятина
   alabanza:
     en: worship
+    pt: louvor
+    fr: louange
+    uk: прославлення
   culto:
     en: service
+    pt: culto
+    fr: culte
+    uk: богослужіння
   célula:
     en: small group
+    pt: célula
+    fr: groupe de maison
+    uk: домашня група
   discipulado:
     en: discipleship
+    pt: discipulado
+    fr: formation de disciples
+    uk: учнівство
   hermano:
     en: brother
+    pt: irmão
+    fr: frère
+    uk: брат
   hermana:
     en: sister
+    pt: irmã
+    fr: sœur
+    uk: сестра
   congregación:
     en: congregation
+    pt: congregação
+    fr: assemblée
+    uk: громада
   ancianos:
     en: elders
+    pt: presbíteros
+    fr: anciens
+    uk: старійшини
   arrepentimiento:
     en: repentance
+    pt: arrependimento
+    fr: repentance
+    uk: покаяння
   salvación:
     en: salvation
+    pt: salvação
+    fr: salut
+    uk: спасіння
   Espíritu Santo:
     en: Holy Spirit
+    pt: Espírito Santo
+    fr: Saint-Esprit
+    uk: Святий Дух
   misericordia:
     en: mercy
+    pt: misericórdia
+    fr: miséricorde
+    uk: милосердя
   testimonio:
     en: testimony
+    pt: testemunho
+    fr: témoignage
+    uk: свідчення
   primicias:
     en: firstfruits
+    pt: primícias
+    fr: prémices
+    uk: первістки
   rincón infantil:
     en: children's corner
+    pt: cantinho infantil
+    fr: coin des enfants
+    uk: дитячий куточок
   santa cena:
     en: the Lord's Supper
+    pt: santa ceia
+    fr: sainte cène
+    uk: вечеря Господня
   avivamiento:
     en: revival
-  célula:
-    en: small group
+    pt: avivamento
+    fr: réveil
+    uk: пробудження
   pacto:
     en: covenant
+    pt: aliança
+    fr: alliance
+    uk: завіт
+
 
 # Vocabulario con el que sesgar el RECONOCIMIENTO de voz (no la traduccion).
 #

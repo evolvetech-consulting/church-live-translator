@@ -216,6 +216,35 @@ Sin clave arranca igual y avisa al iniciar, pero en modo offline (ver §9).
 Poné esos nombres en `config.yaml`. Alcanza con una parte del nombre: `"UM2"`
 matchea `"UM2  Behringer"`.
 
+### Varios idiomas
+
+Cada idioma necesita **su propio canal físico de salida**, uno por transmisor.
+`config.4idiomas.yaml` es un ejemplo con inglés, portugués, francés y ucraniano
+sobre cuatro canales del X-USB del mixer.
+
+Medido en una MacBook M1 Pro, pasar de uno a cuatro idiomas cuesta muy poco:
+
+| | 1 idioma | 4 idiomas |
+|---|---|---|
+| Traducción | 0.60 s | 0.90 s |
+| Síntesis de voz | 0.49 s | 0.56 s |
+
+Una sola llamada al traductor devuelve todos los idiomas a la vez, y las voces
+se sintetizan en paralelo, un hilo por idioma. **No cuesta cuatro veces más.**
+
+Voces recomendadas (todas `medium`; las `high` suman ~1 s por frase):
+
+| Idioma | Voz |
+|---|---|
+| Inglés | `en_US-lessac-medium` |
+| Portugués | `pt_BR-faber-medium` |
+| Francés | `fr_FR-siwis-medium` |
+| Ucraniano | `uk_UA-ukrainian_tts-medium` |
+
+Agregá las traducciones de tus términos en `glosario.yaml`: cada término acepta
+un valor por idioma, y al traductor solo se le pasan los que estén configurados
+como salida.
+
 Para agregar un idioma: descomentá el segundo bloque de `salidas`, poné
 `canal: 1`, y bajá la voz correspondiente:
 
@@ -488,6 +517,8 @@ esperando portugués).
 | `main.py` | Arranque y panel del operador |
 | `config.yaml` | Toda la configuración |
 | `config.mac.yaml` | Configuración para probar en una laptop |
+| `config.prueba.yaml` | Prueba en la PC de la iglesia, sin tocar el sonido de la sala |
+| `config.4idiomas.yaml` | Cuatro idiomas por cuatro canales del X-USB |
 | `glosario.yaml` | Vocabulario y términos de la iglesia |
 | `.env` | La clave del proveedor (crear a partir de `.env.ejemplo`) |
 | `traductor/audio.py` | Captura y corte en frases (VAD) |
