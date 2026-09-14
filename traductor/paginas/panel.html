@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Traductor del culto</title>
+<link rel="icon" type="image/png" href="/estaticos/icono-192.png">
+<link rel="apple-touch-icon" href="/estaticos/icono-180.png">
 <style>
   :root{
     --f0:#0d1017; --f1:#151922; --f2:#1c212c; --bd:#252c3a; --bd2:#323a4a;
@@ -22,7 +24,8 @@
     backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);
     padding:10px 20px;display:grid;grid-template-columns:1fr auto 1fr;
     align-items:center;gap:12px}
-  .top h1{font-size:14.5px;letter-spacing:-.1px}
+  .top h1{font-size:14.5px;letter-spacing:-.1px;display:flex;align-items:center;gap:9px}
+  .top h1 img{width:22px;height:22px;border-radius:6px;flex:none}
   .top .der{display:flex;align-items:center;gap:8px;justify-content:flex-end}
   @media(max-width:700px){
     .top{grid-template-columns:1fr;justify-items:center;text-align:center}
@@ -67,6 +70,11 @@
   .meter.sm .lab{font-size:9.5px}
   .hint{font-size:11.5px;color:var(--tx2);margin-top:7px;line-height:1.45}
   .hint b{color:var(--tx);font-weight:600}
+  /* Estas cambian de texto varias veces por segundo (nivel de entrada, nota
+     de la voz elegida). A largo variable, cada cambio de 1 a 2 lineas
+     empujaba todo lo que esta debajo del cuadro. Ancho fijo: una sola linea,
+     y si no entra se corta con puntos suspensivos en vez de mover el layout. */
+  .hint-1l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:1.45em}
 
   /* ---------- deslizadores ---------- */
   .slider{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
@@ -89,13 +97,32 @@
   .ch:first-child{border-top:0;padding-top:2px}
   .ch .hd{display:flex;align-items:center;gap:8px;margin-bottom:9px}
   .ch .nm{font-weight:600;font-size:13.5px}
-  .ch .rt{font-size:11px;color:var(--tx2);margin-left:auto;
-    background:var(--f2);padding:2px 8px;border-radius:5px;
-    border:1px solid var(--bd);white-space:nowrap}
+  .ch .mas{margin-left:auto;font-size:11px;padding:3px 9px;border-radius:6px;
+    color:var(--tx2);background:transparent;border-color:transparent}
+  .ch .mas:hover{color:var(--tx);background:var(--f2);border-color:var(--bd)}
+  .ch .mas[aria-expanded=true]{color:var(--az);background:var(--f2);border-color:var(--bd)}
+  .ajustes{margin-top:12px;padding-top:12px;border-top:1px dashed var(--bd)}
+  .ajustes .field:last-of-type{margin-bottom:10px}
   .lag{font-size:11px;font-variant-numeric:tabular-nums;padding:2px 8px;
     border-radius:5px;background:var(--f2);border:1px solid var(--bd);color:var(--ok)}
   .lag.warn{color:var(--warn);border-color:#d99a2b40}
   .lag.bad{color:var(--bad);border-color:#f0564a40;background:#2a1416}
+  .lag.apagado{color:var(--tx3)}
+
+  /* Interruptor por idioma. No todos los cultos necesitan los cuatro: apagar
+     uno lo saca de verdad del pedido al traductor (menos tokens, menos
+     audio), no es solo un adorno visual. */
+  .sw{position:relative;display:inline-flex;width:32px;height:18px;flex:none;cursor:pointer}
+  .sw input{position:absolute;inset:0;margin:0;opacity:0;cursor:pointer;z-index:1}
+  .sw i{position:absolute;inset:0;background:var(--bd2);border-radius:99px;
+    transition:background .15s}
+  .sw i::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;
+    border-radius:50%;background:#fff;transition:left .15s}
+  .sw input:checked + i{background:var(--ok)}
+  .sw input:checked + i::after{left:16px}
+  .sw input:disabled + i{opacity:.5}
+  .ch.apagado .meter,.ch.apagado .slider{opacity:.4}
+  .ch.apagado .nm{color:var(--tx2)}
 
   /* ---------- controles ---------- */
   select{background:var(--f2);color:var(--tx);border:1px solid var(--bd);
@@ -116,11 +143,6 @@
     border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px;width:100%}
   input[type=text]:focus{outline:none;border-color:var(--az)}
   input[type=text]::placeholder{color:var(--tx3)}
-  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--f2);
-    border:1px solid var(--bd);border-radius:8px;padding:3px;margin-bottom:12px}
-  .tabs button{background:transparent;border:0;border-radius:6px;padding:6px 8px;
-    font-size:12.5px;color:var(--tx2)}
-  .tabs button[aria-selected=true]{background:var(--bd2);color:var(--tx);font-weight:600}
   .row3{display:grid;grid-template-columns:1fr 96px;gap:8px}
   .chip-src{display:none;align-items:center;gap:7px;font-size:11.5px;
     color:var(--tx2);background:var(--f2);border:1px solid var(--bd);
@@ -140,9 +162,6 @@
     border:4px solid transparent;border-left-color:var(--tx2);
     transition:transform .15s;transform-origin:2px 4px}
   details.cfg[open]>summary::before{transform:rotate(90deg)}
-  .note{font-size:11.5px;color:var(--tx2);background:var(--f2);
-    border:1px solid var(--bd);border-left:2px solid var(--az);
-    border-radius:0 6px 6px 0;padding:8px 10px;margin:2px 0 13px;line-height:1.5}
   .msg{font-size:12px;border-radius:7px;padding:8px 11px;margin-top:11px;display:none}
   .msg.err{display:block;background:#2a1416;color:#ff9c92;border:1px solid #5c2429}
   .msg.ok{display:block;background:#10241a;color:#7ee787;border:1px solid #1d4630}
@@ -184,9 +203,12 @@
   /* Los avisos de estado solo aparecen cuando hay algo que mirar: mientras
      todo anda bien, la barra queda limpia. */
   .pill.oculto{display:none}
-  #btn-nueva{padding:9px 16px;border-radius:99px;font-size:12.5px;color:var(--tx2)}
-  #btn-nueva:hover:not(:disabled){color:var(--tx);border-color:var(--bd2);
-    background:var(--f2)}
+  #btn-nueva,#btn-guardar{padding:9px 15px;border-radius:99px;font-size:12.5px;
+    color:var(--tx2)}
+  #btn-nueva:hover:not(:disabled),#btn-guardar:hover:not(:disabled){
+    color:var(--tx);border-color:var(--bd2);background:var(--f2)}
+  #btn-guardar.sucio{color:var(--az);border-color:#4d8ef755;background:#4d8ef714}
+  #btn-guardar.sucio::after{content:" •"}
   .centro{display:flex;align-items:center;gap:9px}
   body.pausado .meter .fill{filter:grayscale(.75);opacity:.55}
   #banda{display:none;background:#3a2a10;border-bottom:1px solid #5c441a;
@@ -204,9 +226,10 @@
 <body>
 
 <div class="top">
-  <h1>Traductor del culto</h1>
+  <h1><img src="/estaticos/icono-192.png" alt="" width="22" height="22">Traductor del culto</h1>
   <div class="centro">
     <button id="btn-pausa">Pausar traducción</button>
+    <button id="btn-guardar" title="Deja lo que ajustaste acá en el archivo de configuración">Guardar</button>
     <button id="btn-nueva" title="Borra la transcripción y arranca un registro nuevo">Nueva sesión</button>
   </div>
   <div class="der">
@@ -224,6 +247,11 @@
     <div class="card">
       <h2>Entrada — aux send del mixer</h2>
       <div class="body">
+        <div class="field">
+          <label>Dispositivo</label>
+          <div class="row2"><select id="in-dev"></select><select id="in-ch"></select></div>
+        </div>
+
         <div class="chip-src" id="src-chip">
           <span id="src-name"></span>
           <button id="src-stop" style="margin-left:auto;padding:4px 10px">Volver al micrófono</button>
@@ -237,7 +265,8 @@
           <input type="range" id="in-gain" min="0" max="12" step="0.1" value="1">
           <span class="val" id="in-gain-v">×1.00</span>
         </div>
-        <div class="hint" id="in-hint">Si no se mueve cuando alguien habla, revisá el cable del mixer.</div>
+        <div class="hint hint-1l" id="in-hint">Si no se mueve cuando alguien habla, revisá el cable del mixer.</div>
+        <div class="msg" id="cfg-msg"></div>
       </div>
     </div>
 
@@ -260,53 +289,28 @@
             <div><b id="t-time">00:00</b><span>en marcha</span></div>
             <div><b id="t-n">0</b><span>frases</span></div>
           </div>
-        </details>
 
-        <details class="cfg" id="cfg">
-          <summary>Configurar dispositivos</summary>
-          <div class="note">
-            Una salida estéreo tiene <b>dos canales independientes</b>:
-            izquierdo y derecho. Cada uno va a un transmisor distinto, así que
-            una sola placa alcanza para dos idiomas. Con un solo idioma, da
-            igual cuál elijas.
+          <div class="field" style="margin-top:13px">
+            <label>Ensayar con un video o enlace</label>
+            <input type="text" id="src-url" placeholder="https://youtu.be/... o /ruta/sermon.mp4">
           </div>
-          <div class="tabs" role="tablist">
-            <button id="tab-mic" aria-selected="true">Micrófono / placa</button>
-            <button id="tab-file" aria-selected="false">Video o enlace</button>
-          </div>
-
-          <div id="pane-mic">
-            <div class="field">
-              <label>Entrada de audio</label>
-              <div class="row2"><select id="in-dev"></select><select id="in-ch"></select></div>
+          <div class="field">
+            <label>Empezar en · velocidad</label>
+            <div class="row3">
+              <input type="text" id="src-from" placeholder="23:38 (opcional)">
+              <select id="src-speed">
+                <option value="1">1x real</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
             </div>
           </div>
-
-          <div id="pane-file" hidden>
-            <div class="field">
-              <label>Enlace de YouTube o ruta de un archivo</label>
-              <input type="text" id="src-url" placeholder="https://youtu.be/... o /ruta/sermon.mp4">
-            </div>
-            <div class="field">
-              <label>Empezar en · velocidad</label>
-              <div class="row3">
-                <input type="text" id="src-from" placeholder="23:38 (opcional)">
-                <select id="src-speed">
-                  <option value="1">1x real</option>
-                  <option value="2">2x</option>
-                  <option value="4">4x</option>
-                </select>
-              </div>
-            </div>
-            <button class="full" id="src-play">Reproducir por el traductor</button>
-            <div class="hint" style="margin-top:7px">
-              Ensayo general: el sermón entra al pipeline y la traducción sale
-              por el transmisor, igual que en un culto. Con un enlace no se
-              descarga el video. Para probar niveles usá velocidad real.
-            </div>
+          <button class="full" id="src-play">Reproducir por el traductor</button>
+          <div class="hint" style="margin-top:7px">
+            Ensayo general: el sermón entra al pipeline y la traducción sale
+            por el transmisor, igual que en un culto. Con un enlace no se
+            descarga el video. Para probar niveles usá velocidad real.
           </div>
-          <div id="out-cfg"></div>
-          <div class="msg" id="cfg-msg"></div>
         </details>
       </div>
     </div>
@@ -331,13 +335,15 @@ const picos = {};
 const escala = v => v <= 0 ? 0 : Math.max(0, Math.min(1, (20*Math.log10(v) + 60) / 60));
 const dB = v => v <= 0.0005 ? '—' : (20*Math.log10(v)).toFixed(0) + ' dB';
 
-function medidor(pre, v){
-  const p = escala(v);
+function medidor(pre, v, forzarCero){
+  // forzarCero: para los canales de salida en pausa. Sin esto, el audio ya
+  // esta en silencio de verdad, pero la marca de pico decae sola durante ~2s
+  // (factor 0.94 a 5 Hz) y da la sensacion de que algo sigue sonando.
+  const p = forzarCero ? 0 : escala(v);
   $(pre+'-fill').style.width = (p*100) + '%';
-  const ant = picos[pre] || 0;
-  picos[pre] = v > ant ? v : ant * 0.94;
+  picos[pre] = forzarCero ? 0 : (v > (picos[pre] || 0) ? v : (picos[pre] || 0) * 0.94);
   $(pre+'-peak').style.left = (escala(picos[pre])*100) + '%';
-  if ($(pre+'-lab')) $(pre+'-lab').textContent = dB(v);
+  if ($(pre+'-lab')) $(pre+'-lab').textContent = forzarCero ? '—' : dB(v);
 }
 
 function pintarSlider(el){
@@ -359,11 +365,16 @@ function msg(txt, err){
 /* ---------- canales ---------- */
 function construirCanales(){
   $('channels').innerHTML = idiomas.map(l => `
-    <div class="ch" data-i="${l.idioma}">
+    <div class="ch${l.activo === false ? ' apagado' : ''}" data-i="${l.idioma}">
       <div class="hd">
+        <label class="sw" title="Traducir a ${esc(l.nombre)} en este culto">
+          <input type="checkbox" class="on-off" ${l.activo === false ? '' : 'checked'}
+                 aria-label="Traducir a ${esc(l.nombre)}">
+          <i></i>
+        </label>
         <span class="nm">${esc(l.nombre)}</span>
         <span class="lag">—</span>
-        <span class="rt">${esc(l.ruta)}</span>
+        <button class="mas" title="Voz y salida">ajustes</button>
       </div>
       <div class="meter sm">
         <div class="fill" id="o${l.idioma}-fill"></div>
@@ -373,6 +384,18 @@ function construirCanales(){
       <div class="slider">
         <input type="range" class="og" min="0" max="2" step="0.05" value="1">
         <span class="val">×1.00</span>
+      </div>
+      <div class="ajustes" hidden>
+        <div class="field">
+          <label>Voz</label>
+          <select class="ov"></select>
+          <div class="hint hint-1l vh"></div>
+        </div>
+        <div class="field">
+          <label>Sale por</label>
+          <div class="row2"><select class="od"></select><select class="oc"></select></div>
+        </div>
+        <button class="full test">Probar este canal</button>
       </div>
     </div>`).join('');
 
@@ -385,9 +408,33 @@ function construirCanales(){
       pintarSlider(s);
     };
     s.onchange = async () => {
-      try { await enviar('/config/nivel', {destino:l.idioma, ganancia:+s.value}); }
+      try { await enviar('/config/nivel', {destino:l.idioma, ganancia:+s.value}); marcarSucio(); }
       catch(e){ msg(e.message, true); }
       setTimeout(()=>{ arrastrando = null; }, 400);
+    };
+    c.querySelector('.on-off').onchange = async ev => {
+      const chk = ev.target, activo = chk.checked;
+      chk.disabled = true;
+      c.classList.toggle('apagado', !activo);
+      try{
+        await enviar('/config/idioma', {idioma:l.idioma, activo});
+        marcarSucio();
+        msg(activo ? `${l.nombre} activado.`
+                   : `${l.nombre} apagado: no se le va a pedir traducción.`, false);
+      }catch(err){
+        chk.checked = !activo;   // revertir: el pedido no se aplico
+        c.classList.toggle('apagado', !chk.checked);
+        msg(err.message, true);
+      }
+      chk.disabled = false;
+    };
+    // Los ajustes de cada idioma se abren donde esta el idioma, no en otra
+    // seccion: cambiar una voz y probarla no deberia obligar a ir y volver.
+    c.querySelector('.mas').onclick = () => {
+      const caja = c.querySelector('.ajustes');
+      caja.hidden = !caja.hidden;
+      c.querySelector('.mas').setAttribute('aria-expanded', !caja.hidden);
+      if(!caja.hidden && !caja.dataset.listo){ caja.dataset.listo = '1'; armarAjustes(l, c); }
     };
   });
 }
@@ -421,14 +468,16 @@ function pintarEstado(e){
   b.textContent = e.pausado ? 'Reanudar traducción' : 'Pausar traducción';
   b.classList.toggle('off', !!e.pausado);
 
-  /* Señal cruda contra señal corregida: si entra pero no llega, es ganancia. */
+  /* Señal cruda contra señal corregida: si entra pero no llega, es ganancia.
+     Mensajes cortos a proposito, para que entren en la sola linea de
+     .hint-1l sin depender de que la elipsis se coma la palabra que importa. */
   const h = $('in-hint');
   if ((e.entrada_cruda||0) < 0.002)
-    h.innerHTML = 'Sin señal. Si alguien está hablando, revisá el <b>cable del mixer</b>.';
+    h.innerHTML = 'Sin señal. Revisá el <b>cable del mixer</b>.';
   else if ((e.entrada||0) < 0.02)
-    h.innerHTML = 'Entra señal pero <b>muy baja</b>. Subí la ganancia o el aux send.';
+    h.innerHTML = '<b>Señal baja.</b> Subí la ganancia o el aux send.';
   else if ((e.entrada||0) > 0.95)
-    h.innerHTML = '<b>Saturando.</b> Bajá la ganancia: así el reconocimiento empeora.';
+    h.innerHTML = '<b>Saturando.</b> Bajá la ganancia: reconoce peor.';
   else h.innerHTML = 'Nivel correcto.';
 
   if (e.idiomas && e.idiomas.length !== idiomas.length){ idiomas = e.idiomas; construirCanales(); }
@@ -442,11 +491,24 @@ function pintarEstado(e){
     const c = $('channels').querySelector(`[data-i="${l.idioma}"]`);
     if(!c) return;
     const d = (e.canales||{})[l.idioma] || {};
-    medidor('o'+l.idioma, d.nivel || 0);
+    medidor('o'+l.idioma, d.nivel || 0, !!e.pausado);
     const lag = c.querySelector('.lag');
-    lag.textContent = (d.atraso ?? 0).toFixed(1) + 's atraso';
-    lag.className = 'lag' + (d.atraso > d.umbral_alto ? ' bad'
-                           : d.atraso > d.umbral_medio ? ' warn' : '');
+    if(d.activo === false){
+      lag.textContent = 'apagado';
+      lag.className = 'lag apagado';
+    }else{
+      lag.textContent = (d.atraso ?? 0).toFixed(1) + 's atraso';
+      lag.className = 'lag' + (d.atraso > d.umbral_alto ? ' bad'
+                             : d.atraso > d.umbral_medio ? ' warn' : '');
+    }
+    // Sincroniza el interruptor si otra pestaña lo cambio, pero nunca
+    // mientras esta propia pestaña tiene un pedido en curso (evita el
+    // parpadeo de que el latido pise el clic que se acaba de hacer aca).
+    const onoff = c.querySelector('.on-off');
+    if(!onoff.disabled && d.activo != null && onoff.checked !== !!d.activo){
+      onoff.checked = !!d.activo;
+      c.classList.toggle('apagado', !d.activo);
+    }
     if (arrastrando !== l.idioma && d.ganancia != null){
       const s = c.querySelector('.og');
       s.value = d.ganancia;
@@ -510,43 +572,34 @@ function opcionesCanal(sel, n, eleg){
   sel.value = Math.min(eleg, Math.max(n-1,0));
 }
 
+async function armarAjustes(l, c){
+  if(!devs) devs = await (await fetch('/dispositivos')).json();
+  const s = (devs.actual.salidas || {})[l.idioma] || {};
+  opciones(c.querySelector('.od'), devs.salidas, s.dispositivo);
+  opcionesCanal(c.querySelector('.oc'), canalesDe(s.dispositivo, devs.salidas), s.canal||0);
+  c.querySelector('.od').onchange = () => {
+    opcionesCanal(c.querySelector('.oc'),
+      canalesDe(c.querySelector('.od').value, devs.salidas), 0);
+    aplicarSalida(l, c);
+  };
+  c.querySelector('.oc').onchange = () => aplicarSalida(l, c);
+  c.querySelector('.test').onclick = async ev => {
+    const b = ev.target; b.disabled = true; b.textContent = 'Sonando…';
+    try{
+      const d = await enviar('/probar', {idioma:l.idioma});
+      msg(`Prueba en ${l.nombre} (${d.duracion}s).`, false);
+      setTimeout(()=>{ b.disabled=false; b.textContent='Probar este canal'; }, d.duracion*1000+400);
+    }catch(e){ msg(e.message, true); b.disabled=false; b.textContent='Probar este canal'; }
+  };
+  cargarVoces(l, c, s.voz);
+}
+
 async function cargarDispositivos(){
   devs = await (await fetch('/dispositivos')).json();
   const a = devs.actual;
   opciones($('in-dev'), devs.entradas, a.entrada.dispositivo);
   opcionesCanal($('in-ch'), canalesDe(a.entrada.dispositivo, devs.entradas), a.entrada.canal);
 
-  $('out-cfg').innerHTML = idiomas.map(l => `
-    <div class="field" data-i="${l.idioma}">
-      <label>Salida de ${esc(l.nombre)} — al transmisor</label>
-      <div class="row2"><select class="od"></select><select class="oc"></select></div>
-      <label style="margin:9px 0 5px">Voz</label>
-      <select class="ov"></select>
-      <div class="hint vh" style="margin-top:5px"></div>
-      <button class="full test" style="margin-top:8px">Probar este canal</button>
-    </div>`).join('');
-
-  idiomas.forEach(l => {
-    const c = $('out-cfg').querySelector(`[data-i="${l.idioma}"]`);
-    const s = a.salidas[l.idioma] || {};
-    opciones(c.querySelector('.od'), devs.salidas, s.dispositivo);
-    opcionesCanal(c.querySelector('.oc'), canalesDe(s.dispositivo, devs.salidas), s.canal||0);
-    c.querySelector('.od').onchange = () => {
-      opcionesCanal(c.querySelector('.oc'),
-        canalesDe(c.querySelector('.od').value, devs.salidas), 0);
-      aplicarSalida(l);
-    };
-    c.querySelector('.oc').onchange = () => aplicarSalida(l);
-    cargarVoces(l, c, s.voz);
-    c.querySelector('.test').onclick = async ev => {
-      const b = ev.target; b.disabled = true; b.textContent = 'Sonando…';
-      try{
-        const d = await enviar('/probar', {idioma:l.idioma});
-        msg(`Frase de prueba en ${l.nombre} (${d.duracion}s). Escuchá en el receptor y ajustá el nivel.`, false);
-        setTimeout(()=>{ b.disabled=false; b.textContent='Probar este canal'; }, d.duracion*1000+400);
-      }catch(e){ msg(e.message, true); b.disabled=false; b.textContent='Probar este canal'; }
-    };
-  });
 }
 
 /* La calidad de la voz es la decision que mas afecta la latencia, y desde el
@@ -582,6 +635,7 @@ async function cargarVoces(l, c, actual){
     msg('Cambiando la voz… si hay que descargarla puede tardar un minuto.', false);
     try{
       await enviar('/config/voz', {idioma:l.idioma, voz:sel.value});
+      marcarSucio();
       msg(`Voz de ${l.nombre} cambiada. Probá el canal para escucharla.`, false);
       cargarVoces(l, c, prev);
     }catch(e){ msg(e.message, true); }
@@ -589,30 +643,22 @@ async function cargarVoces(l, c, actual){
   };
 }
 
-async function aplicarSalida(l){
-  const c = $('out-cfg').querySelector(`[data-i="${l.idioma}"]`);
+async function aplicarSalida(l, c){
   try{
     await enviar('/config/salida', {idioma:l.idioma,
       dispositivo:c.querySelector('.od').value, canal:+c.querySelector('.oc').value});
+    marcarSucio();
     msg(`${l.nombre} ahora sale por ${c.querySelector('.od').selectedOptions[0].text}`, false);
-  }catch(e){ msg(e.message, true); cargarDispositivos(); }
+  }catch(e){ msg(e.message, true); }
 }
 async function aplicarEntrada(){
   try{
     await enviar('/config/entrada', {dispositivo:$('in-dev').value, canal:+$('in-ch').value});
+    marcarSucio();
     msg('Entrada cambiada. Hablá y mirá el medidor.', false);
   }catch(e){ msg(e.message, true); cargarDispositivos(); }
 }
 /* ---------- fuente de audio ---------- */
-function pestana(archivo){
-  $('tab-mic').setAttribute('aria-selected', !archivo);
-  $('tab-file').setAttribute('aria-selected', archivo);
-  $('pane-mic').hidden = archivo;
-  $('pane-file').hidden = !archivo;
-}
-$('tab-mic').onclick = () => pestana(false);
-$('tab-file').onclick = () => pestana(true);
-
 async function ponerFuente(origen, boton){
   if(boton){ boton.disabled = true; boton.dataset.t = boton.textContent;
              boton.textContent = 'Preparando…'; }
@@ -640,7 +686,9 @@ $('in-dev').onchange = () => {
   aplicarEntrada();
 };
 $('in-ch').onchange = aplicarEntrada;
-$('cfg').addEventListener('toggle', () => { if($('cfg').open) cargarDispositivos(); });
+// El selector de entrada ya no esta detras de un acordeon: se puebla apenas
+// carga la pagina, no recien cuando alguien lo abre.
+cargarDispositivos();
 
 $('in-gain').oninput = e => {
   arrastrando = 'entrada';
@@ -648,7 +696,7 @@ $('in-gain').oninput = e => {
   pintarSlider(e.target);
 };
 $('in-gain').onchange = async e => {
-  try{ await enviar('/config/nivel', {destino:'entrada', ganancia:+e.target.value}); }
+  try{ await enviar('/config/nivel', {destino:'entrada', ganancia:+e.target.value}); marcarSucio(); }
   catch(err){ msg(err.message, true); }
   setTimeout(()=>{ arrastrando = null; }, 400);
 };
@@ -658,6 +706,20 @@ function limpiarPantalla(){
   $('feed').querySelectorAll('.ph').forEach(n => n.remove());
   $('empty').style.display = '';
 }
+
+/* Marcar el boton cuando hay algo sin guardar: lo que se ajusta probando se
+   pierde al reiniciar si nadie lo escribe al archivo. */
+function marcarSucio(){ $('btn-guardar').classList.add('sucio'); }
+
+$('btn-guardar').onclick = async e => {
+  const b = e.target; b.disabled = true; b.textContent = 'Guardando…';
+  try{
+    const d = await enviar('/config/guardar', {});
+    b.classList.remove('sucio');
+    msg('Guardado en ' + d.archivo + '. Al reiniciar queda así.', false);
+  }catch(err){ msg(err.message, true); }
+  b.disabled = false; b.textContent = 'Guardar';
+};
 
 $('btn-nueva').onclick = async e => {
   if(!confirm('¿Empezar una sesión nueva?\n\nSe borra la transcripción en '

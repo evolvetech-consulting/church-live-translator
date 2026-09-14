@@ -52,8 +52,19 @@ traduccion:
   timeout_s: 6.0
 
 # -------------------------------------------------------------
-# Un canal fisico por idioma. Dos idiomas NO pueden compartir
-# canal: se pisarian el audio (el programa lo rechaza).
+# Un canal fisico por idioma ACTIVO. Dos idiomas activos NO pueden
+# compartir canal: se pisarian el audio (el programa lo rechaza).
+#
+# No todos los cultos necesitan los cuatro idiomas: con `activo: false`
+# uno queda configurado (placa, voz, canal) pero no se le pide traduccion
+# ni se sintetiza audio para el, asi que apagarlo ahorra de verdad. Se
+# prende y apaga en caliente desde el panel; no hace falta tocar esto a
+# mano salvo que quieras dejarlo apagado por defecto.
+#
+# Un idioma apagado no ocupa su canal de verdad: otro idioma activo se
+# puede mudar ahi sin problema (el panel lo permite). Si despues queres
+# volver a prender el que quedo apagado, primero hay que darle otro canal
+# libre, o el programa te va a avisar que choca con el que esta sonando.
 # -------------------------------------------------------------
 salidas:
   - idioma: "en"

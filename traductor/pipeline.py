@@ -49,11 +49,27 @@ class Evento:
 
 class Pipeline:
     def __init__(self, cfg, al_actualizar=None, archivo=None, velocidad=1.0,
-                 desde=None):
+                 desde=None, ruta_config=None):
         self.cfg = cfg
+        self.ruta_config = ruta_config
         self.archivo = archivo
         self.al_actualizar = al_actualizar or (lambda ev: None)
+        # Todos los idiomas configurados, prendidos o no: hacen falta para
+        # armar los motores, las colas y los hilos de sintesis de cada salida,
+        # asi un idioma apagado se puede volver a prender sin reiniciar nada.
         self.idiomas = cfg.idiomas
+        # Solo los que van a pedirse al traductor. No todos los cultos
+        # necesitan los cuatro idiomas, y apagar uno tiene que ahorrar de
+        # verdad: si no se le pide, no hay tokens de mas ni audio de mas.
+        self.idiomas_activos = [s.idioma for s in cfg.salidas if s.activo]
+        if not self.idiomas_activos:
+            log.warning(
+                "No hay ningún idioma activo en config.yaml. Activo todos: sin "
+                "al menos uno, no hay nada para traducir."
+            )
+            for s in cfg.salidas:
+                s.activo = True
+            self.idiomas_activos = list(self.idiomas)
 
         # Resolvemos las placas primero: si config.yaml tiene un nombre mal,
         # el operador se entera en un segundo y no despues de esperar medio
@@ -64,7 +80,7 @@ class Pipeline:
         log.info("Cargando Whisper (%s)...", cfg.stt.modelo)
         self.transcriptor = Transcriptor(cfg.stt, self.glosario.terminos_para_whisper())
         self.traductor = Traductor(
-            cfg.traduccion, self.glosario, self.idiomas, self.transcriptor
+            cfg.traduccion, self.glosario, self.idiomas_activos, self.transcriptor
         )
 
         log.info("Cargando voces...")
@@ -195,8 +211,10 @@ class Pipeline:
                 break
             ev, audio = item
             # Cuanto atras vamos, para que el traductor condense si hace falta.
+            # Solo mira los idiomas activos: uno apagado no recibe audio nuevo,
+            # asi que su cola no deberia influir en si hay que condensar.
             atraso = max(
-                (self.ruteador.pendiente_s(i) for i in self.idiomas), default=0.0
+                (self.ruteador.pendiente_s(i) for i in self.idiomas_activos), default=0.0
             )
             t0 = time.perf_counter()
             try:
@@ -338,7 +356,7 @@ class Pipeline:
         self._generacion += 1
         self._vaciar_colas()
         for idioma in self.idiomas:
-            self.ruteador.descartar_sobre(idioma, 0.0)
+            self.ruteador.silenciar(idioma)
             self.descartado_s[idioma] = 0.0
         self.eventos.clear()
 
@@ -363,6 +381,19 @@ class Pipeline:
                     cola.get_nowait()
                 except queue.Empty:
                     break
+
+    def guardar_config(self) -> str:
+        """Deja en el archivo lo que se ajusto desde el panel.
+
+        Sin esto, cada prueba obliga a rehacer a mano la voz, el dispositivo y
+        los niveles: el sistema se configura probando, y lo que se encontro
+        probando tiene que sobrevivir al reinicio.
+        """
+        if not self.ruta_config:
+            raise RuntimeError("No sé en qué archivo guardar.")
+        destino = self.cfg.guardar(self.ruta_config)
+        log.info("Configuración guardada en %s", destino)
+        return str(destino)
 
     def cambiar_fuente(self, origen: str | None = None, desde=None,
                        velocidad: float = 1.0) -> str:
@@ -420,8 +451,13 @@ class Pipeline:
             # segmentada esperando en la cola de Whisper igual terminaria
             # sonando despues de que el operador puso pausa.
             self._vaciar_colas()
+            # silenciar(), no descartar_sobre(): pausa es una orden explicita
+            # del operador, y tiene que cortar lo que este sonando en ese
+            # instante (incluida una frase de "Probar este canal" en curso),
+            # no esperar a que termine la oracion como hace el descarte
+            # automatico por atraso.
             for idioma in self.idiomas:
-                self.ruteador.descartar_sobre(idioma, 0.0)
+                self.ruteador.silenciar(idioma)
         log.info("Traduccion %s", "pausada" if pausado else "reanudada")
         return self.pausado
 
@@ -440,6 +476,76 @@ class Pipeline:
         salida.voz = voz
         log.info("Voz de %s cambiada a %s", idioma, voz)
         return voz
+
+    def _colision_canal(self, salida):
+        """Otra salida ACTIVA en el mismo (dispositivo, canal), si hay una.
+
+        Un idioma apagado no ocupa su canal de verdad, asi que no cuenta como
+        colision. Lo usan tanto `activar_idioma()` (para no prender un idioma
+        sobre un canal que ya esta sonando) como `probar_canal()` (para no
+        mandar una frase de prueba a pisarse con audio real en vivo).
+        """
+        return next(
+            (s for s in self.cfg.salidas
+             if s.idioma != salida.idioma and s.activo
+             and s.dispositivo == salida.dispositivo and s.canal == salida.canal),
+            None,
+        )
+
+    def activar_idioma(self, idioma: str, activo: bool) -> list[str]:
+        """Prende o apaga un idioma sin reiniciar nada.
+
+        No todos los cultos necesitan traducirse a los cuatro idiomas. Apagar
+        uno lo saca de verdad del pedido al traductor: no se gastan tokens en
+        el, y como ademas no llega texto a su cola de sintesis, tampoco se
+        gasta CPU sintetizando algo que no se va a usar. La placa y la voz
+        quedan configuradas igual, listas para cuando se lo vuelva a prender.
+
+        Reconstruye el traductor porque el esquema JSON y el prompt de sistema
+        se arman una vez con la lista de idiomas: no hay forma de sacarle uno
+        a mitad de camino sin rehacerlo. Es una operacion de configuracion,
+        no del camino caliente de cada frase, asi que el costo de reconstruir
+        no importa.
+        """
+        try:
+            salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+        except StopIteration:
+            raise KeyError(f"No hay una salida configurada para {idioma!r}") from None
+
+        if activo:
+            # Un idioma apagado no ocupa su canal de verdad (ver
+            # Ruteador.reconfigurar), asi que otro pudo haberse mudado ahi
+            # mientras tanto. Antes de prenderlo nos fijamos que no choque con
+            # uno que ya este sonando, o los dos terminarian pisandose en el
+            # mismo canal.
+            choque = self._colision_canal(salida)
+            if choque is not None:
+                raise ValueError(
+                    f"No puedo activar {salida.nombre}: su canal ya lo usa "
+                    f"{choque.nombre}, que esta activo. Cambiale el canal en "
+                    f"'ajustes' antes de prenderlo."
+                )
+
+        activos = {i for i in self.idiomas_activos if i != idioma}
+        if activo:
+            activos.add(idioma)
+        if not activos:
+            raise ValueError(
+                "Tiene que quedar al menos un idioma activo: no se puede "
+                "apagar el último."
+            )
+
+        salida.activo = activo
+        # Se preserva el orden de config.yaml, no el de insercion del set.
+        self.idiomas_activos = [i for i in self.idiomas if i in activos]
+        self.traductor = Traductor(
+            self.cfg.traduccion, self.glosario, self.idiomas_activos, self.transcriptor
+        )
+        log.info(
+            "%s: %s -> activos ahora %s",
+            idioma, "activado" if activo else "apagado", self.idiomas_activos,
+        )
+        return self.idiomas_activos
 
     def cambiar_nivel(self, destino: str, valor: float) -> float:
         """Ajusta la ganancia de la entrada o de un canal de salida.
@@ -463,6 +569,14 @@ class Pipeline:
         """Manda una frase de prueba al canal. Devuelve su duracion."""
         if idioma not in self.motores:
             raise KeyError(f"No hay salida configurada para {idioma!r}")
+        salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+        choque = self._colision_canal(salida)
+        if choque is not None:
+            raise ValueError(
+                f"No puedo probar {salida.nombre}: comparte canal con "
+                f"{choque.nombre}, que esta activo. La prueba se pisaria con "
+                f"su audio en vivo."
+            )
         motor = self.motores[idioma]
         texto = self.PRUEBAS.get(idioma) or f"Test channel {idioma}. One, two, three."
         audio = motor.sintetizar(texto)

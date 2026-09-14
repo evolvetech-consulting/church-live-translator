@@ -84,6 +84,21 @@ class BufferIdioma:
             restante = 0 if self._actual is None else len(self._actual) - self._pos
             return restante + sum(len(t) for t in self._pendientes)
 
+    def silenciar(self) -> None:
+        """Corta ya mismo, sin esperar a que termine la frase en curso.
+
+        Distinto de `recortar()`: eso es para el descarte automatico por
+        atraso, donde importa no arruinar lo que un oyente esta escuchando en
+        vivo. Esto es para cuando el operador pide pausa a proposito — un
+        "Probar este canal" que sigue sonando despues de apretar Pausar es
+        justo el tipo de cosa que rompe la confianza en el boton. Ahi pausa
+        tiene que significar silencio ahora, no "que termine la oracion".
+        """
+        with self._lock:
+            self._pendientes.clear()
+            self._actual = None
+            self._pos = 0
+
     def recortar(self, muestras_max: int) -> int:
         """Descarta frases en espera si la cola se fue de mano.
 
@@ -156,14 +171,20 @@ class Ruteador:
         s = self.salidas[idioma]
         anterior = (s.dispositivo, s.canal, s.ganancia)
 
+        # Un idioma apagado no le manda audio a nadie, asi que su canal no
+        # esta realmente ocupado: solo importa si choca con OTRO que este
+        # activo. Sin esto, un idioma que no se usa ese culto bloquea su
+        # canal para siempre, aunque nada vaya a sonar ahi.
         ocupado = [
             o.nombre for o in self.salidas.values()
-            if o.idioma != idioma and o.dispositivo == dispositivo and o.canal == canal
+            if o.idioma != idioma and o.activo
+            and o.dispositivo == dispositivo and o.canal == canal
         ]
         if ocupado:
             raise ValueError(
-                f"Ese canal ya lo usa {ocupado[0]}. Cada idioma necesita su "
-                f"propio canal fisico o se pisan el audio."
+                f"Ese canal ya lo usa {ocupado[0]}, que esta activo. Cada "
+                f"idioma activo necesita su propio canal fisico o se pisan "
+                f"el audio."
             )
 
         self.detener()
@@ -216,6 +237,9 @@ class Ruteador:
 
     def pendiente_s(self, idioma: str) -> float:
         return self.buffers[idioma].muestras_pendientes() / self.frecuencia
+
+    def silenciar(self, idioma: str) -> None:
+        self.buffers[idioma].silenciar()
 
     def descartar_sobre(self, idioma: str, segundos: float) -> float:
         tirado = self.buffers[idioma].recortar(int(segundos * self.frecuencia))

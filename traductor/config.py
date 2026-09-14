@@ -55,6 +55,11 @@ class Salida:
     velocidad: float = 1.0
     ganancia: float = 0.7
     expresividad: float | None = None
+    # No todos los cultos necesitan los cuatro idiomas. Un idioma inactivo
+    # sigue configurado (placa, voz, canal) pero no se le pide traduccion al
+    # LLM ni se sintetiza audio para el: apagarlo ahorra de verdad, no es
+    # cosmetico. Se puede prender y apagar en caliente desde el panel.
+    activo: bool = True
 
 
 @dataclass
@@ -71,6 +76,12 @@ class Web:
     puerto: int = 8080
 
 
+# Lo que se puede cambiar desde el panel y hay que poder guardar. El resto de
+# config.yaml se edita a mano y nunca se toca al guardar.
+CAMPOS_ENTRADA = ("dispositivo", "canal", "ganancia")
+CAMPOS_SALIDA = ("dispositivo", "canal", "voz", "velocidad", "ganancia", "activo")
+
+
 @dataclass
 class Config:
     entrada: Entrada = field(default_factory=Entrada)
@@ -85,6 +96,46 @@ class Config:
     @property
     def idiomas(self) -> list[str]:
         return [s.idioma for s in self.salidas]
+
+    def guardar(self, ruta: str | Path = "config.yaml") -> Path:
+        """Escribe al archivo lo que se cambio desde el panel.
+
+        Se reescribe solo el valor de cada campo, no el archivo entero: estos
+        YAML estan llenos de comentarios que explican para que sirve cada cosa
+        y por que tiene el valor que tiene, y volcarlos de nuevo desde cero los
+        perderia todos.
+
+        Tampoco se tocan las secciones que no se editan desde el panel (vad,
+        stt, traduccion, latencia): si alguien las ajusto a mano mientras el
+        programa corria, su version es la buena.
+        """
+        from ruamel.yaml import YAML
+
+        ruta = Path(ruta)
+        yaml_rt = YAML()
+        yaml_rt.preserve_quotes = True
+        datos = yaml_rt.load(ruta.read_text(encoding="utf-8"))
+
+        entrada = datos.setdefault("entrada", {})
+        for campo in CAMPOS_ENTRADA:
+            entrada[campo] = getattr(self.entrada, campo)
+
+        por_idioma = {s["idioma"]: s for s in datos.get("salidas") or []}
+        for salida in self.salidas:
+            destino = por_idioma.get(salida.idioma)
+            if destino is None:
+                continue
+            for campo in CAMPOS_SALIDA:
+                destino[campo] = getattr(salida, campo)
+
+        # Se escribe a un archivo temporal y recien despues se reemplaza: si
+        # algo falla a mitad de camino, el operador se queda con su
+        # configuracion anterior y no con un archivo cortado por la mitad.
+        temporal = ruta.with_suffix(ruta.suffix + ".tmp")
+        with temporal.open("w", encoding="utf-8") as f:
+            yaml_rt.dump(datos, f)
+        temporal.replace(ruta)
+        return ruta
 
 
 def _seccion(datos: dict, clave: str, cls):
@@ -117,16 +168,22 @@ def cargar(ruta: str | Path = "config.yaml") -> Config:
             raise ValueError(f"config.yaml: salida #{i + 1} sin {sorted(faltan)}")
         salidas.append(Salida(**s))
 
-    # Dos idiomas no pueden compartir el mismo canal fisico del mismo aparato:
-    # se pisarian el audio.
+    # Dos idiomas ACTIVOS no pueden compartir el mismo canal fisico: se
+    # pisarian el audio. Uno apagado no cuenta: no le manda nada a nadie, asi
+    # que puede compartir canal con el que este activo sin problema. Es lo
+    # mismo que valida Ruteador.reconfigurar() en caliente, y tiene que ser
+    # igual: si no, "Guardar" desde el panel podria dejar un config.yaml que
+    # esta misma funcion despues rechaza al reiniciar.
     ocupados: dict[tuple[str | None, int], str] = {}
     for s in salidas:
+        if not s.activo:
+            continue
         llave = (s.dispositivo, s.canal)
         if llave in ocupados:
             raise ValueError(
                 f"config.yaml: '{s.nombre}' y '{ocupados[llave]}' apuntan al mismo "
-                f"canal {s.canal} de {s.dispositivo!r}. Cada idioma necesita su "
-                f"propio canal fisico."
+                f"canal {s.canal} de {s.dispositivo!r}, y los dos estan activos. "
+                f"Cada idioma activo necesita su propio canal fisico."
             )
         ocupados[llave] = s.nombre
 

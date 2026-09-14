@@ -94,6 +94,12 @@ salidas:
     # mueve poco el tono: lo que de verdad define la entonacion es la
     # puntuacion del texto, que el traductor ya decide segun el sentido.
     # expresividad: 1.0
+    # No todos los cultos necesitan todos los idiomas configurados. Con
+    # activo: false, este idioma queda listo (placa, voz, canal) pero no se
+    # le pide traduccion al LLM ni se sintetiza audio para el: no gasta nada.
+    # Se puede prender y apagar en caliente desde el panel sin editar esto a
+    # mano; "Guardar" en el panel escribe el valor que haya quedado aca.
+    activo: true
 
   # Descomentar para un segundo idioma por el canal derecho:
   # - idioma: "pt"

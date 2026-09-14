@@ -26,6 +26,15 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 PAGINAS = Path(__file__).parent / "paginas"
+ESTATICOS = PAGINAS / "estaticos"
+
+# Whitelist explicita: nada de resolver rutas arbitrarias del disco a partir
+# de lo que mande el navegador. Solo estos archivos, y solo por su nombre.
+TIPOS_ESTATICOS = {
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
 
 # Cada cuanto se manda el estado (medidores, atraso, contadores). 5 Hz alcanza
 # para que los medidores se vean fluidos sin inundar la red de la iglesia.
@@ -65,6 +74,7 @@ class ServidorWeb:
             {
                 "idioma": s.idioma,
                 "nombre": s.nombre,
+                "activo": s.activo,
                 "ruta": f"{s.dispositivo or 'defecto'} · "
                         f"{'izq' if s.canal == 0 else 'der' if s.canal == 1 else f'canal {s.canal}'}",
             }
@@ -110,6 +120,7 @@ class ServidorWeb:
                 "atraso": round(p.ruteador.pendiente_s(s.idioma), 2),
                 "ganancia": round(s.ganancia, 2),
                 "voz": s.voz,
+                "activo": s.activo,
                 "umbral_medio": lat.umbral_aceleracion_s,
                 "umbral_alto": lat.umbral_maximo_s,
             }
@@ -141,7 +152,7 @@ class ServidorWeb:
 
         actual_salidas = {
             s.idioma: {"dispositivo": s.dispositivo, "canal": s.canal,
-                       "ganancia": s.ganancia, "voz": s.voz}
+                       "ganancia": s.ganancia, "voz": s.voz, "activo": s.activo}
             for s in self.cfg.salidas
         }
         return {
@@ -195,6 +206,24 @@ class ServidorWeb:
             self._paginas[nombre] = (PAGINAS / nombre).read_bytes()
         return self._paginas[nombre]
 
+    def _estatico(self, nombre: str) -> tuple[bytes, str] | None:
+        """Ícono o logo servido desde traductor/paginas/estaticos/.
+
+        `nombre` viene del navegador, asi que se valida contra el nombre de
+        archivo real (sin separadores) antes de tocar el disco: no hay forma
+        de pedir algo fuera de esa carpeta con esto.
+        """
+        if "/" in nombre or "\\" in nombre or nombre in ("", ".", ".."):
+            return None
+        ruta = ESTATICOS / nombre
+        tipo = TIPOS_ESTATICOS.get(ruta.suffix.lower())
+        if tipo is None or not ruta.is_file():
+            return None
+        clave = f"estatico:{nombre}"
+        if clave not in self._paginas:
+            self._paginas[clave] = ruta.read_bytes()
+        return self._paginas[clave], tipo
+
     def _handler(self):
         srv = self
 
@@ -243,6 +272,10 @@ class ServidorWeb:
                             float(datos.get("velocidad", 1.0)),
                         )
                         return self._json({"ok": True, "fuente": nombre})
+                    elif ruta == "/config/guardar":
+                        return self._json(
+                            {"ok": True, "archivo": srv.pipeline.guardar_config()}
+                        )
                     elif ruta == "/sesion/nueva":
                         srv.pipeline.nueva_sesion()
                         srv.t0 = time.time()
@@ -260,6 +293,11 @@ class ServidorWeb:
                             {"ok": True, "voz": srv.pipeline.cambiar_voz(
                                 datos["idioma"], datos["voz"])}
                         )
+                    elif ruta == "/config/idioma":
+                        activos = srv.pipeline.activar_idioma(
+                            datos["idioma"], bool(datos.get("activo", True))
+                        )
+                        return self._json({"ok": True, "activos": activos})
                     elif ruta == "/config/nivel":
                         v = srv.pipeline.cambiar_nivel(
                             datos["destino"], datos["ganancia"]
@@ -300,6 +338,19 @@ class ServidorWeb:
                     return self._json(para_idioma(idioma or "en"))
                 if ruta == "/subtitulos":
                     return self._enviar(srv._pagina("subtitulos.html"))
+                if ruta == "/favicon.ico":
+                    # El navegador la pide sola, sin que el HTML se lo diga.
+                    est = srv._estatico("icono-192.png")
+                    if est is None:
+                        return self.send_error(404)
+                    cuerpo, tipo = est
+                    return self._enviar(cuerpo, tipo)
+                if ruta.startswith("/estaticos/"):
+                    est = srv._estatico(ruta.removeprefix("/estaticos/"))
+                    if est is None:
+                        return self.send_error(404)
+                    cuerpo, tipo = est
+                    return self._enviar(cuerpo, tipo)
                 if ruta == "/":
                     return self._enviar(srv._pagina("panel.html"))
                 self.send_error(404)

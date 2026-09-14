@@ -245,6 +245,21 @@ Agregá las traducciones de tus términos en `glosario.yaml`: cada término acep
 un valor por idioma, y al traductor solo se le pasan los que estén configurados
 como salida.
 
+### Apagar idiomas que no usás ese día
+
+No todos los cultos necesitan los cuatro idiomas. Cada canal, en el panel,
+tiene un interruptor: apagarlo lo saca de verdad del pedido al traductor — no
+se gastan tokens en un idioma que nadie va a escuchar, y tampoco se sintetiza
+audio para él. La placa, la voz y el nivel quedan configurados igual, listos
+para cuando lo vuelvas a prender.
+
+Tiene que quedar **al menos un idioma activo**; el panel no deja apagar el
+último. "Probar este canal" sigue funcionando aunque el idioma esté apagado,
+por si querés confirmar que el transmisor sigue andando.
+
+Apretá **Guardar** para que el estado (qué idiomas quedaron prendidos) sea el
+que se usa la próxima vez que arranques la aplicación.
+
 Para agregar un idioma: descomentá el segundo bloque de `salidas`, poné
 `canal: 1`, y bajá la voz correspondiente:
 
@@ -276,11 +291,24 @@ hace falta estar sentado frente a la PC. Muestra:
 
 - **Nivel de entrada.** Lo primero que hay que mirar. Si no se mueve cuando
   alguien habla, el problema está en el aux send del mixer, no en el software.
-- **Canales de salida**, con el nivel y el **atraso** de cada idioma. En verde
-  va bien; en amarillo el sistema ya está acelerando el habla; en rojo está
-  descartando audio viejo para volver a sincronizar.
+  El texto de abajo dice si el problema es de cableado (sin señal) o de nivel
+  (muy bajo, o saturando).
+- **Canales de salida**, con el nivel, el **atraso** de cada idioma y un
+  **interruptor** para prenderlo o apagarlo (ver [Apagar idiomas](#apagar-idiomas-que-no-usás-ese-día)
+  más abajo). En verde va bien; en amarillo el sistema ya está acelerando el
+  habla; en rojo está descartando audio viejo para volver a sincronizar.
+- **Ajustes por idioma** (botón "ajustes" en cada canal): la voz, a qué placa y
+  canal sale, y "Probar este canal" para calibrar el nivel sin hablar.
 - **Transcripción y traducción en vivo**, con el tiempo que tardó cada frase.
 - **Modo**: en línea u offline. Si cambia a offline durante el culto, lo ves acá.
+- **Pausar traducción**: corta la traducción (y el video, si estás reproduciendo
+  uno) sin bajar la aplicación. Para los himnos.
+- **Guardar**: escribe en `config.yaml` lo que ajustaste desde el panel — voz,
+  dispositivo, nivel, idiomas activos. Se ilumina cuando hay cambios sin
+  guardar. Sin esto, cada prueba se pierde al reiniciar.
+- **Nueva sesión**: borra la transcripción en pantalla y abre un registro
+  nuevo, para arrancar en blanco el sábado que viene. El registro anterior
+  queda guardado en su propio archivo.
 
 La terminal muestra lo mismo en versión compacta, por si preferís no abrir un
 navegador. `Ctrl+C` para terminar.
@@ -531,6 +559,7 @@ esperando portugués).
 | `traductor/pipeline.py` | Orquestación de las etapas |
 | `traductor/servidor.py` | Servidor web (panel + subtítulos) |
 | `traductor/paginas/` | HTML del panel y de la vista congregación |
+| `traductor/paginas/estaticos/` | Ícono y logo servidos por la aplicación |
 | `tools/dispositivos.py` | Lista las placas de audio |
 | `tools/canales.py` | Medidor por canal: cuál trae el micrófono del púlpito |
 | `tools/diagnostico.py` | Corre la cadena completa y dice en qué etapa se corta |

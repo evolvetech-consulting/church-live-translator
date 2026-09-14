@@ -196,7 +196,8 @@ def main() -> int:
 
             desde = segundos_de(args.desde)
         pipeline = Pipeline(
-            cfg, archivo=args.archivo, velocidad=args.velocidad, desde=desde
+            cfg, archivo=args.archivo, velocidad=args.velocidad, desde=desde,
+            ruta_config=args.config,
         )
     except Exception as e:
         consola.print(f"[red]No pude arrancar:[/red] {e}")

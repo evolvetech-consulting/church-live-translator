@@ -16,6 +16,8 @@ google-genai>=1.0.0
 
 # --- varios ---
 PyYAML>=6.0
+# Guarda config.yaml sin perder los comentarios que lo explican
+ruamel.yaml>=0.18
 rich>=13.0
 
 # --- solo para probar con cultos ya streameados (tools/bajar_culto.py) ---
