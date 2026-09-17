@@ -84,8 +84,14 @@ class Pipeline:
         )
 
         log.info("Cargando voces...")
+        # bajar_si_falta=True tambien aca: si config.yaml pide una voz que
+        # todavia no esta en voces/ (por ejemplo, se agrego un idioma nuevo
+        # a mano y no se lo probo antes desde el panel), se baja sola en vez
+        # de romper el arranque con un FileNotFoundError.
         self.motores = {
-            s.idioma: MotorTTS(s.voz, s.velocidad, expresividad=s.expresividad)
+            s.idioma: MotorTTS(
+                s.voz, s.velocidad, expresividad=s.expresividad, bajar_si_falta=True
+            )
             for s in cfg.salidas
         }
         self.ruteador = Ruteador(cfg.salidas)

@@ -5,14 +5,20 @@
 # =============================================================
 
 entrada:
-  # Coincidencia por subcadena del nombre del dispositivo (no distingue
-  # mayusculas). "UM2" matchea "UM2  Behringer" etc.
-  # Poner null para usar el dispositivo de entrada por defecto del sistema.
-  dispositivo: "UM2"
+  # Placa USB del mixer Behringer. Alcanza con una parte del nombre.
+  dispositivo: "IN 1-8"
   # Frecuencia a la que abrimos la placa. 48000 es lo que soporta casi todo.
   # Internamente remuestreamos a 16 kHz para Whisper.
   frecuencia: 48000
-  canal: 0          # 0 = izquierdo/mono. El aux send del mixer entra por aca.
+  # Canal del microfono del predicador. Confirmado con tools/canales.py en la
+  # iglesia: es el unico mono con señal mientras se predica. Si cambia el
+  # ruteo del mixer, volver a correr:
+  #   .venv\Scripts\python -m tools.canales -d "IN 1-8"
+  canal: 7
+  # Medido en un culto real: con x2 el pico queda en -20 dB y el promedio en
+  # -38 dB, y el detector reconoce el 34% del audio como voz. Anda bien. Si
+  # cambia el nivel del direct out en la consola, se ajusta desde el panel.
+  ganancia: 2.0
 
 # -------------------------------------------------------------
 # Deteccion de voz: define DONDE se corta cada frase.
@@ -80,35 +86,73 @@ traduccion:
 
   # Si el proveedor tarda mas que esto, se usa el fallback y se sigue.
   timeout_s: 6.0
+# -------------------------------------------------------------
+# Un canal fisico por idioma ACTIVO. Dos idiomas activos NO pueden
+# compartir canal: se pisarian el audio (el programa lo rechaza).
+#
+# >>> ANTES DE USAR EN VIVO <<<
+# El nombre "X-USB" de mas abajo es el que se espera para la salida del
+# mixer, pero todavia no se confirmo en la iglesia (solo se confirmo la
+# ENTRADA, "IN 1-8"). Correr en la PC de la iglesia:
+#     .venv\Scripts\python -m tools.dispositivos
+# y poner el nombre exacto que aparezca ahi para la salida del X-USB, con
+# al menos 4 canales. En la consola, verificar tambien que esos 4 retornos
+# USB NO esten en la mezcla principal, o la sala escucha las traducciones.
+#
+# No todos los cultos necesitan los cuatro idiomas: con `activo: false` uno
+# queda configurado (placa, voz, canal) pero no se le pide traduccion ni se
+# sintetiza audio para el, asi que apagarlo ahorra de verdad. Se prende y
+# apaga en caliente desde el panel; no hace falta tocar esto a mano salvo
+# que quieras dejar alguno apagado por defecto.
+#
+# Un idioma apagado no ocupa su canal de verdad: otro activo se puede mudar
+# ahi sin problema desde el panel. Si despues queres reactivarlo, primero
+# hay que darle un canal libre, o el programa avisa que choca con el que
+# esta sonando.
+# -------------------------------------------------------------
 salidas:
   - idioma: "en"
     nombre: "Ingles"
-    dispositivo: "UM2"
-    canal: 0                       # izquierdo -> transmisor 1
+    dispositivo: "X-USB"
+    canal: 0
     voz: "en_US-lessac-medium"
-    velocidad: 1.0                 # 1.0 normal, <1.0 mas lento
-    ganancia: 0.7                  # 0..1. La entrada del T130 es de MICROFONO:
-                                   # si satura, bajar esto (ver README).
+    velocidad: 1.0
+    ganancia: 0.8
     # Variabilidad de la voz. Dejar sin definir usa los valores propios de la
     # voz, que es lo recomendado. Subirlo alarga las frases hasta un 25% y
     # mueve poco el tono: lo que de verdad define la entonacion es la
     # puntuacion del texto, que el traductor ya decide segun el sentido.
     # expresividad: 1.0
-    # No todos los cultos necesitan todos los idiomas configurados. Con
-    # activo: false, este idioma queda listo (placa, voz, canal) pero no se
-    # le pide traduccion al LLM ni se sintetiza audio para el: no gasta nada.
-    # Se puede prender y apagar en caliente desde el panel sin editar esto a
-    # mano; "Guardar" en el panel escribe el valor que haya quedado aca.
     activo: true
 
-  # Descomentar para un segundo idioma por el canal derecho:
-  # - idioma: "pt"
-  #   nombre: "Portugues"
-  #   dispositivo: "UM2"
-  #   canal: 1                     # derecho -> transmisor 2
-  #   voz: "pt_BR-faber-medium"
-  #   velocidad: 1.0
-  #   ganancia: 0.7
+  - idioma: "pt"
+    nombre: "Portugues"
+    dispositivo: "X-USB"
+    canal: 1
+    voz: "pt_BR-faber-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+    activo: true
+
+  - idioma: "fr"
+    nombre: "Frances"
+    dispositivo: "X-USB"
+    canal: 2
+    voz: "fr_FR-siwis-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+    activo: true
+
+  - idioma: "uk"
+    nombre: "Ucraniano"
+    dispositivo: "X-USB"
+    canal: 3
+    # Unica voz ucraniana de calidad media; las otras son x_low o high (~1s
+    # mas de latencia cada una). Ver README -> Varios idiomas.
+    voz: "uk_UA-ukrainian_tts-medium"
+    velocidad: 1.0
+    ganancia: 0.8
+    activo: true
 
 # -------------------------------------------------------------
 # Control de latencia acumulada.
