@@ -10,6 +10,11 @@ Dos paginas sobre el mismo flujo de eventos:
                tenemos, asi que publicarlo no cuesta nada: sirve para personas
                sordas o hipoacusicas, para quien no alcanzo un receptor, y como
                red de seguridad si falla un transmisor.
+
+Cualquiera en la red de la iglesia llega a las dos paginas: son de solo
+lectura y no piden nada. Lo que SI cambia algo (pausar, cambiar la salida de
+un idioma, borrar la transcripcion) va por POST y pide un PIN — ver
+`traductor.entorno.resolver_pin`.
 """
 
 from __future__ import annotations
@@ -54,11 +59,14 @@ def ip_local() -> str:
 
 
 class ServidorWeb:
-    def __init__(self, puerto: int, cfg, pipeline=None):
+    def __init__(self, puerto: int, cfg, pipeline=None, pin: str = ""):
         self.puerto = puerto
         self.cfg = cfg
         self.pipeline = pipeline
         self.t0 = time.time()
+        # Protege solo lo que cambia algo (do_POST). El panel en si y los
+        # subtitulos de la congregacion son de solo lectura y no lo piden.
+        self.pin = pin
 
         self._suscriptores: list[queue.Queue] = []
         self._lock = threading.Lock()
@@ -250,6 +258,13 @@ class ServidorWeb:
 
             def do_POST(self):
                 ruta = self.path.split("?")[0].rstrip("/") or "/"
+                # Todo lo que llega por POST cambia algo (config, pausa,
+                # sesion nueva, probar canal): se protege entero con un solo
+                # chequeo, en vez de repetirlo rama por rama.
+                if srv.pin and self.headers.get("X-Pin") != srv.pin:
+                    return self._json(
+                        {"error": "PIN incorrecto o no ingresado."}, 401
+                    )
                 if srv.pipeline is None:
                     return self._json({"error": "el pipeline no esta corriendo"}, 503)
                 try:

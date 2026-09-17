@@ -313,6 +313,33 @@ hace falta estar sentado frente a la PC. Muestra:
 La terminal muestra lo mismo en versión compacta, por si preferís no abrir un
 navegador. `Ctrl+C` para terminar.
 
+### El PIN de control
+
+Cualquiera en la red de la iglesia llega al panel y a los subtítulos — son de
+solo lectura, no piden nada. Pero **pausar, cambiar la salida de un idioma,
+guardar o borrar la transcripción** sí cambian algo en vivo, y sin protección
+cualquiera en esa red podría hacerlo con un solo pedido, sin login.
+
+Por eso esas acciones piden un PIN. Al arrancar, la terminal muestra uno:
+
+```
+  PIN para cambiar algo   764479  (lo pide el panel una vez por dispositivo)
+```
+
+La primera vez que tocás algo que cambia una configuración, el panel te lo
+pide; lo escribís una vez por dispositivo (celular, laptop) y lo recuerda
+solo. Mirar la transcripción, los subtítulos o el nivel de entrada nunca lo
+pide.
+
+Por defecto es al azar y cambia en cada reinicio. Para fijarlo (no tener que
+mirar la terminal cada vez) o desactivarlo del todo (una red que ya se
+considera de confianza), poné en `.env`:
+
+```
+PANEL_PIN=482913     # un PIN fijo
+PANEL_PIN=ninguno    # sin PIN
+```
+
 ### Vista congregación
 
 La página del QR. Elige idioma (si hay más de uno), guarda la preferencia y
@@ -548,7 +575,8 @@ esperando portugués).
 | `config.prueba.yaml` | Prueba en la PC de la iglesia, sin tocar el sonido de la sala |
 | `config.4idiomas.yaml` | Cuatro idiomas por cuatro canales del X-USB |
 | `glosario.yaml` | Vocabulario y términos de la iglesia |
-| `.env` | La clave del proveedor (crear a partir de `.env.ejemplo`) |
+| `.env` | La clave del proveedor y el PIN del panel (crear a partir de `.env.ejemplo`) |
+| `traductor/entorno.py` | Carga `.env` y resuelve el PIN del panel |
 | `traductor/audio.py` | Captura y corte en frases (VAD) |
 | `traductor/fuente.py` | Reproducir un archivo por el pipeline (ensayo) |
 | `traductor/voces.py` | Catálogo de voces de Piper |

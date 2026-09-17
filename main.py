@@ -24,7 +24,7 @@ from rich.table import Table
 from rich.text import Text
 
 from traductor import config
-from traductor.entorno import cargar_env
+from traductor.entorno import cargar_env, resolver_pin
 from traductor.pipeline import Pipeline
 
 consola = Console()
@@ -207,7 +207,10 @@ def main() -> int:
     if cfg.web.activo:
         from traductor.servidor import ServidorWeb
 
-        servidor = ServidorWeb(cfg.web.puerto, cfg, pipeline)
+        # Se resuelve una sola vez aca (y no dentro de ServidorWeb) para poder
+        # imprimirlo antes de que nadie lo necesite.
+        pin = resolver_pin()
+        servidor = ServidorWeb(cfg.web.puerto, cfg, pipeline, pin=pin)
         try:
             url = servidor.iniciar()
         except OSError as e:
@@ -222,6 +225,11 @@ def main() -> int:
                 f"\n  Panel del operador   [bold cyan]{url}[/bold cyan]\n"
                 f"  Vista congregación   [cyan]{url}/subtitulos[/cyan]  (para el QR)\n"
             )
+            if pin:
+                consola.print(
+                    f"  PIN para cambiar algo   [bold yellow]{pin}[/bold yellow]  "
+                    f"(lo pide el panel una vez por dispositivo)\n"
+                )
 
     parar = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: parar.set())

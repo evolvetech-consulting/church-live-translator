@@ -350,9 +350,21 @@ function pintarSlider(el){
   el.style.setProperty('--p', (el.value/el.max*100) + '%');
 }
 
-async function enviar(ruta, cuerpo){
+async function enviar(ruta, cuerpo, reintentando){
+  // Todo lo que cambia algo pide un PIN (ver traductor/entorno.py). Se manda
+  // el que este guardado en este dispositivo; si el servidor lo rechaza, se
+  // pregunta una vez y se reintenta con el nuevo.
+  const pin = localStorage.getItem('pin') || '';
   const r = await fetch(ruta, {method:'POST',
-    headers:{'Content-Type':'application/json'}, body:JSON.stringify(cuerpo)});
+    headers:{'Content-Type':'application/json', 'X-Pin':pin},
+    body:JSON.stringify(cuerpo)});
+  if(r.status === 401 && !reintentando){
+    const nuevo = window.prompt(
+      'PIN del panel (aparece en la terminal donde arrancó la aplicación):');
+    if(nuevo === null) throw new Error('Hace falta el PIN para cambiar esto.');
+    localStorage.setItem('pin', nuevo.trim());
+    return enviar(ruta, cuerpo, true);
+  }
   const d = await r.json();
   if(!r.ok) throw new Error(d.error || 'error');
   return d;
