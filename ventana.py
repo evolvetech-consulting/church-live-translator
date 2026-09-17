@@ -23,12 +23,24 @@ from pathlib import Path
 
 import webview
 
+# Corriendo como script, RAIZ es la carpeta de este archivo. Empaquetado con
+# PyInstaller, __file__ apunta adentro del bundle interno (_internal/...), no
+# a la carpeta donde vive el .exe -- ahi hay que usar sys.executable en
+# cambio. Y se fija el directorio de trabajo a RAIZ antes de cualquier otra
+# cosa: config.yaml, voces/ y .env se buscan con ruta relativa en todo el
+# proyecto, y sin esto dependerian de desde donde Windows haya lanzado el
+# acceso directo, en vez de desde donde esta instalada la aplicacion.
+if getattr(sys, "frozen", False):
+    RAIZ = Path(sys.executable).resolve().parent
+else:
+    RAIZ = Path(__file__).resolve().parent
+os.chdir(RAIZ)
+
 from traductor import config
 from traductor.entorno import cargar_env, resolver_pin
 from traductor.pipeline import Pipeline
 from traductor.servidor import ServidorWeb
 
-RAIZ = Path(__file__).resolve().parent
 ICONO = RAIZ / "traductor" / "paginas" / "estaticos" / "icono.ico"
 
 log = logging.getLogger(__name__)
