@@ -11,6 +11,7 @@ streams sobre la misma placa haria que se pisen.
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections import deque
 
@@ -19,6 +20,8 @@ import sounddevice as sd
 import soxr
 
 from .audio import buscar_dispositivo
+
+log = logging.getLogger(__name__)
 
 
 class BufferIdioma:
@@ -202,27 +205,57 @@ class Ruteador:
             raise
 
     def iniciar(self) -> None:
+        """Abre un stream por placa fisica.
+
+        Si hay mas de un idioma, puede haber mas de una placa (dos idiomas en
+        el mismo aparato estereo, un tercero en un dongle aparte). Si UNA
+        placa falla al abrir -desconectada, dormida, un driver que se colgo-
+        las demas igual arrancan: perder un idioma no tiene por que tirar
+        abajo la traduccion de los otros tres en medio de un culto.
+        """
+        fallidos: list[tuple[list, Exception]] = []
         for indice, grupo in self._por_dispositivo.items():
             callback, canales = self._hacer_callback(grupo)
-            info = sd.query_devices(indice, "output")
-            if canales > info["max_output_channels"]:
-                nombres = ", ".join(f"{s.nombre} (canal {s.canal})" for s in grupo)
-                maximo = info["max_output_channels"]
-                raise RuntimeError(
-                    f"{info['name']!r} tiene {maximo} canal(es) de salida "
-                    f"({'izquierdo y derecho' if maximo == 2 else f'0 a {maximo - 1}'}), "
-                    f"y hace falta el canal {canales - 1} para: {nombres}."
+            try:
+                info = sd.query_devices(indice, "output")
+                if canales > info["max_output_channels"]:
+                    nombres = ", ".join(f"{s.nombre} (canal {s.canal})" for s in grupo)
+                    maximo = info["max_output_channels"]
+                    raise RuntimeError(
+                        f"{info['name']!r} tiene {maximo} canal(es) de salida "
+                        f"({'izquierdo y derecho' if maximo == 2 else f'0 a {maximo - 1}'}), "
+                        f"y hace falta el canal {canales - 1} para: {nombres}."
+                    )
+                stream = sd.OutputStream(
+                    device=indice,
+                    channels=canales,
+                    samplerate=self.frecuencia,
+                    dtype="float32",
+                    blocksize=int(self.frecuencia * 0.02),  # 20 ms
+                    callback=callback,
                 )
-            stream = sd.OutputStream(
-                device=indice,
-                channels=canales,
-                samplerate=self.frecuencia,
-                dtype="float32",
-                blocksize=int(self.frecuencia * 0.02),  # 20 ms
-                callback=callback,
-            )
-            stream.start()
+                stream.start()
+            except Exception as e:
+                fallidos.append((grupo, e))
+                continue
             self._streams.append(stream)
+
+        if fallidos and not self._streams:
+            # Ninguna placa arranco: no hay nada de audio de verdad, esto si
+            # es un fallo total y hay que avisarlo alto y claro.
+            nombres, e = fallidos[0]
+            raise RuntimeError(
+                f"No pude abrir ninguna salida de audio ({e}). "
+                f"Revisa que la placa este conectada."
+            ) from e
+        for grupo, e in fallidos:
+            nombres = ", ".join(s.nombre for s in grupo)
+            log.warning(
+                "No pude abrir la salida de %s (%s). Sigo con el resto de los "
+                "idiomas; ese canal se queda sin sonido hasta que se resuelva "
+                "y se reinicie.",
+                nombres, e,
+            )
 
     def detener(self) -> None:
         for stream in self._streams:

@@ -48,7 +48,14 @@ Reglas:
   del reconocimiento de voz, que a menudo no pone ninguna:
     * Si la frase es una pregunta, terminala en '?' aunque en español venga sin
       signos. "Entienden bien" es una pregunta y va "Do you understand?".
-    * Exclamaciones, llamados y enfasis llevan '!'.
+    * Exclamaciones, llamados y enfasis llevan '!'. Fijate tambien en marcas
+      de intensidad en como esta dicha la frase en español -una palabra
+      repetida, un llamado directo como "escuchen" o "les digo", un "de
+      verdad" o "en serio"- y traducilas con esa misma fuerza, no de forma
+      aplanada. No inventes emocion que no esta: la mayoria de una predica
+      es tono conversacional normal, y llenar de signos de exclamacion donde
+      no corresponde suena falso y le hace perder credibilidad a la
+      traduccion.
     * Toda frase que este completa termina en '.', '?' o '!'.
     * Solo si la frase quedo cortada de verdad a la mitad (termina en medio de
       una idea, y la que sigue la va a continuar) la dejas sin signo final,
