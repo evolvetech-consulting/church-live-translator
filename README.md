@@ -111,10 +111,16 @@ Es seguro volver a ejecutarlo: detecta lo que ya está hecho y saltea.
 > las rutas a 260 caracteres y algunas librerías tienen límites más bajos
 > todavía. El instalador avisa si la ruta es larga.
 
-Después: **`iniciar.bat`** (o el acceso directo del Escritorio) abre una
-**ventana de aplicación**, sin terminal ni navegador — pensada para que quien
-esté de turno en sonido no tenga que saber nada de computadoras. Se cierra
-como cualquier programa, con la X de la ventana.
+Después: en el Escritorio quedan dos íconos con la imagen de la app (en
+Windows, un acceso directo `.lnk` de verdad — no un `.bat` con el ícono
+genérico de engranaje):
+
+- **`Traductor del culto`** — el de todos los días. Abre una **ventana de
+  aplicación**, sin terminal ni navegador, pensada para que quien esté de
+  turno en sonido no tenga que saber nada de computadoras. Se cierra como
+  cualquier programa, con la X de la ventana.
+- **`Actualizar traductor`** — para vos, cuando haya un cambio (ver
+  [Actualizar](#actualizar) más abajo).
 
 > Para depurar, hacer un ensayo con `--archivo`, o cualquier otro uso técnico,
 > seguís teniendo `python main.py` desde una terminal — el panel de siempre,
@@ -123,12 +129,22 @@ como cualquier programa, con la X de la ventana.
 
 ### Actualizar
 
-Doble clic en **`actualizar.bat`** (Windows) o `.venv/bin/python actualizar.py`
-(macOS). Baja la última versión del código y no toca nada de lo configurado en
-esa computadora: `.env`, `config.yaml`, `glosario.yaml`, las voces bajadas y los
+En Windows, doble clic en el ícono **`Actualizar traductor`** del Escritorio
+(lo crea el instalador). En macOS, `.venv/bin/python actualizar.py`. Baja la
+última versión del código y no toca nada de lo configurado en esa
+computadora: `.env`, `config.yaml`, `glosario.yaml`, las voces bajadas y los
 registros de los cultos quedan como están.
 
 No hace falta tener git instalado.
+
+> Esto es para quien mantiene el sistema (correrlo un día de semana, no en
+> medio de un culto), no para quien está de turno en sonido — ese es un ícono
+> aparte, a propósito: bajar código nuevo mientras la traducción está en vivo
+> es innecesariamente arriesgado.
+>
+> Actualizar **no hace que la app ya abierta cambie sola**. Si algo estaba
+> corriendo, cerralo y volvé a abrirlo desde el ícono de todos los días para
+> que tome el código nuevo.
 
 ### A mano
 

@@ -273,6 +273,34 @@ def preparar_env() -> bool:
     return False
 
 
+def crear_acceso_directo_windows(ruta_lnk: Path, objetivo: str, argumentos: str,
+                                 carpeta: Path, icono: Path | None = None) -> bool:
+    """Crea un .lnk de Windows, el unico tipo de acceso directo al que se le
+    puede poner un icono propio (un .bat siempre se ve con el icono generico
+    de engranaje, sin importar que icono tenga el programa que ejecuta).
+
+    Se arma con PowerShell y el objeto COM WScript.Shell: no hace falta
+    ninguna libreria de Python nueva (pywin32, etc.), PowerShell viene en
+    cualquier Windows desde hace mas de una decada. Devuelve False si algo
+    sale mal, para que quien llama pueda caer a un .bat comun en vez de
+    quedarse sin ningun acceso directo.
+    """
+    script = f'''
+$s = New-Object -ComObject WScript.Shell
+$a = $s.CreateShortcut("{ruta_lnk}")
+$a.TargetPath = "{objetivo}"
+$a.Arguments = "{argumentos}"
+$a.WorkingDirectory = "{carpeta}"
+{f'$a.IconLocation = "{icono}"' if icono else ""}
+$a.Save()
+'''
+    r = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True, text=True,
+    )
+    return r.returncode == 0 and ruta_lnk.exists()
+
+
 def crear_lanzadores() -> None:
     paso("Creando los accesos directos")
     if ES_WINDOWS:
@@ -285,21 +313,50 @@ def crear_lanzadores() -> None:
         if not py_ventana.exists():
             aviso("no encontré pythonw.exe, uso python.exe (va a mostrar una consola)")
             py_ventana = VENV / "Scripts" / "python.exe"
-        contenido = (
-            "@echo off\r\n"
-            "cd /d \"%~dp0\"\r\n"
-            f"start \"\" \"{py_ventana}\" ventana.py\r\n"
+        # python.exe (con consola) para actualizar: conviene ver el progreso.
+        py_consola = VENV / "Scripts" / "python.exe"
+        icono = RAIZ / "traductor" / "paginas" / "estaticos" / "icono.ico"
+
+        (RAIZ / "iniciar.bat").write_text(
+            "@echo off\r\ncd /d \"%~dp0\"\r\n"
+            f"start \"\" \"{py_ventana}\" ventana.py\r\n",
+            encoding="utf-8",
         )
-        (RAIZ / "iniciar.bat").write_text(contenido, encoding="utf-8")
         bien("iniciar.bat")
+
         escritorio = Path(os.path.expandvars(r"%USERPROFILE%\Desktop"))
-        if escritorio.is_dir():
+        if not escritorio.is_dir():
+            return
+
+        # Dos accesos directos separados, a proposito: el de todos los dias
+        # (para quien esta de turno, sin saber nada de esto) y el de
+        # actualizar (para vos, cuando te avise de un cambio). Nunca deberia
+        # bajar codigo nuevo mientras la traduccion esta corriendo en vivo,
+        # asi que actualizar es su propio icono, no un boton dentro de la app.
+        ok_iniciar = crear_acceso_directo_windows(
+            escritorio / "Traductor del culto.lnk",
+            str(py_ventana), "ventana.py", str(RAIZ), icono if icono.exists() else None,
+        )
+        ok_actualizar = crear_acceso_directo_windows(
+            escritorio / "Actualizar traductor.lnk",
+            str(py_consola), "actualizar.py", str(RAIZ), icono if icono.exists() else None,
+        )
+        if ok_iniciar and ok_actualizar:
+            bien("accesos directos en el Escritorio, con ícono")
+        else:
+            # PowerShell fallando aca seria muy raro, pero mejor dejar algo
+            # utilizable (sin icono propio) que nada.
+            aviso("no pude crear los accesos con ícono; dejo un .bat simple")
             (escritorio / "Traductor del culto.bat").write_text(
                 f"@echo off\r\ncd /d \"{RAIZ}\"\r\n"
                 f"start \"\" \"{py_ventana}\" ventana.py\r\n",
                 encoding="utf-8",
             )
-            bien("acceso directo en el Escritorio")
+            (escritorio / "Actualizar traductor.bat").write_text(
+                f"@echo off\r\ncd /d \"{RAIZ}\"\r\n"
+                f"\"{py_consola}\" actualizar.py\r\npause\r\n",
+                encoding="utf-8",
+            )
     else:
         lanzador = RAIZ / "iniciar.command"
         lanzador.write_text(
@@ -360,6 +417,10 @@ def resumen(falta_clave: bool, pin_generado: str | None) -> None:
         print(f"  PIN del panel: {C.amar}{pin_generado}{C.fin}  {C.gris}(guardalo en .env, se generó ahora){C.fin}")
         print(f"     {C.gris}lo pide la primera vez que se cambia algo desde el panel,{C.fin}")
         print(f"     {C.gris}una sola vez por celular o laptop{C.fin}\n")
+    if ES_WINDOWS:
+        print(f"  En el Escritorio quedaron dos íconos:")
+        print(f"     {C.azul}Traductor del culto{C.fin}   {C.gris}— para quien esté de turno{C.fin}")
+        print(f"     {C.azul}Actualizar traductor{C.fin}  {C.gris}— para vos, cuando haya un cambio{C.fin}\n")
     print(f"  {C.gris}Para depurar o hacer un ensayo (--archivo, --verboso, etc.) se sigue{C.fin}")
     print(f"  {C.gris}usando  {py} main.py  desde una terminal, como siempre.{C.fin}\n")
     print(f"  {C.gris}Todo el detalle está en README.md{C.fin}")
