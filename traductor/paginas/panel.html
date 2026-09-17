@@ -359,8 +359,13 @@ async function enviar(ruta, cuerpo, reintentando){
     headers:{'Content-Type':'application/json', 'X-Pin':pin},
     body:JSON.stringify(cuerpo)});
   if(r.status === 401 && !reintentando){
+    // ventana.py abre esta pagina con ?ventana=1: ahi no hay ninguna terminal
+    // donde buscar un PIN al azar, porque ese modo exige uno fijo en .env.
+    const enVentana = new URLSearchParams(location.search).has('ventana');
     const nuevo = window.prompt(
-      'PIN del panel (aparece en la terminal donde arrancó la aplicación):');
+      enVentana
+        ? 'PIN del panel (el que se configuró en el archivo .env):'
+        : 'PIN del panel (aparece en la terminal donde arrancó la aplicación):');
     if(nuevo === null) throw new Error('Hace falta el PIN para cambiar esto.');
     localStorage.setItem('pin', nuevo.trim());
     return enviar(ruta, cuerpo, true);

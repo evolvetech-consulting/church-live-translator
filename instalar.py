@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -199,9 +200,58 @@ def bajar_voces() -> None:
         bien("ya estaban todas")
         return
     print(f"    faltan: {', '.join(faltan)}")
-    correr([str(py_venv()), "-m", "piper.download_voices", *faltan,
-            "--data-dir", str(carpeta)], "bajar las voces", mostrar=True)
+    # No se usa correr(): en macOS, con pywebview ya instalado en el mismo
+    # entorno, el subproceso de piper a veces crashea con un error nativo de
+    # Objective-C (recursive_mutex) AL SALIR, despues de bajar los archivos
+    # sin problema. El codigo de salida miente en ese caso, asi que en vez de
+    # confiar en el se verifica lo que de verdad importa: si el archivo esta.
+    try:
+        subprocess.run(
+            [str(py_venv()), "-m", "piper.download_voices", *faltan,
+             "--data-dir", str(carpeta)]
+        )
+    except FileNotFoundError:
+        morir("no encontre el interprete de Python para bajar las voces")
+
+    siguen_faltando = [v for v in faltan if not (carpeta / f"{v}.onnx").exists()]
+    if siguen_faltando:
+        morir(
+            f"no pude bajar: {', '.join(siguen_faltando)}",
+            "Revisá la conexión a internet y volvé a correr el instalador.",
+        )
     bien(f"{len(faltan)} voz/voces lista(s)")
+
+
+def generar_pin() -> str:
+    import secrets
+
+    return "".join(secrets.choice("0123456789") for _ in range(6))
+
+
+def asegurar_pin_fijo() -> str | None:
+    """Si .env no tiene un PANEL_PIN activo, le agrega uno generado ahora.
+
+    La ventana de la aplicacion (ventana.py) no tiene terminal donde mostrar
+    un PIN al azar por sesion, asi que necesita uno fijo desde el primer
+    arranque. Generarlo aca evita un paso manual mas: sin esto, la primera
+    vez que alguien abre la app se encontraria con una pantalla pidiendo
+    configurar algo en un archivo que nunca supo que existia.
+
+    Devuelve el PIN si lo genero (para mostrarlo al final), o None si ya
+    habia uno.
+    """
+    env = RAIZ / ".env"
+    texto = env.read_text(encoding="utf-8")
+    if re.search(r"^PANEL_PIN=.+$", texto, re.M):
+        return None
+    pin = generar_pin()
+    if not texto.endswith("\n"):
+        texto += "\n"
+    texto += f"\n# Generado por el instalador. Es lo que va a pedir la app la\n"
+    texto += f"# primera vez que se cambia algo desde el panel (una vez por dispositivo).\n"
+    texto += f"PANEL_PIN={pin}\n"
+    env.write_text(texto, encoding="utf-8")
+    return pin
 
 
 def preparar_env() -> bool:
@@ -226,21 +276,27 @@ def preparar_env() -> bool:
 def crear_lanzadores() -> None:
     paso("Creando los accesos directos")
     if ES_WINDOWS:
-        (RAIZ / "iniciar.bat").write_text(
+        # pythonw.exe no abre consola (a diferencia de python.exe): es lo que
+        # hace que esto se sienta como una aplicacion y no como un script.
+        # Viene con cualquier instalacion normal de Python; si por algun
+        # motivo no esta, se cae a python.exe, que si muestra una consola
+        # pero al menos arranca.
+        py_ventana = VENV / "Scripts" / "pythonw.exe"
+        if not py_ventana.exists():
+            aviso("no encontré pythonw.exe, uso python.exe (va a mostrar una consola)")
+            py_ventana = VENV / "Scripts" / "python.exe"
+        contenido = (
             "@echo off\r\n"
             "cd /d \"%~dp0\"\r\n"
-            "start \"\" http://localhost:8080\r\n"
-            ".venv\\Scripts\\python.exe main.py\r\n"
-            "pause\r\n",
-            encoding="utf-8",
+            f"start \"\" \"{py_ventana}\" ventana.py\r\n"
         )
+        (RAIZ / "iniciar.bat").write_text(contenido, encoding="utf-8")
         bien("iniciar.bat")
         escritorio = Path(os.path.expandvars(r"%USERPROFILE%\Desktop"))
         if escritorio.is_dir():
             (escritorio / "Traductor del culto.bat").write_text(
                 f"@echo off\r\ncd /d \"{RAIZ}\"\r\n"
-                f"start \"\" http://localhost:8080\r\n"
-                f".venv\\Scripts\\python.exe main.py\r\npause\r\n",
+                f"start \"\" \"{py_ventana}\" ventana.py\r\n",
                 encoding="utf-8",
             )
             bien("acceso directo en el Escritorio")
@@ -249,8 +305,7 @@ def crear_lanzadores() -> None:
         lanzador.write_text(
             "#!/bin/bash\n"
             'cd "$(dirname "$0")"\n'
-            "(sleep 2 && open http://localhost:8080) &\n"
-            ".venv/bin/python main.py\n",
+            ".venv/bin/python ventana.py\n",
             encoding="utf-8",
         )
         lanzador.chmod(0o755)
@@ -273,7 +328,7 @@ def verificar() -> None:
     bien(f"{salidas} idioma(s) de salida · traductor: {proveedor} · whisper: {modelo}")
 
 
-def resumen(falta_clave: bool) -> None:
+def resumen(falta_clave: bool, pin_generado: str | None) -> None:
     # El ".\" adelante es obligatorio en PowerShell, que no ejecuta rutas
     # relativas sin el; en cmd.exe tambien funciona, asi que sirve para los dos.
     py = ".\\.venv\\Scripts\\python" if ES_WINDOWS else ".venv/bin/python"
@@ -299,7 +354,14 @@ def resumen(falta_clave: bool) -> None:
     print(f"     {C.gris}{py} -m tools.simulacro --demo{C.fin}\n")
     n += 1
     print(f"  {n}. Arrancá: {C.azul}{arranque}{C.fin}")
-    print(f"     {C.gris}abre el panel en http://localhost:8080{C.fin}\n")
+    print(f"     {C.gris}abre una ventana con el panel, sin terminal ni navegador —{C.fin}")
+    print(f"     {C.gris}esto es lo que usa quien esté de turno en sonido{C.fin}\n")
+    if pin_generado:
+        print(f"  PIN del panel: {C.amar}{pin_generado}{C.fin}  {C.gris}(guardalo en .env, se generó ahora){C.fin}")
+        print(f"     {C.gris}lo pide la primera vez que se cambia algo desde el panel,{C.fin}")
+        print(f"     {C.gris}una sola vez por celular o laptop{C.fin}\n")
+    print(f"  {C.gris}Para depurar o hacer un ensayo (--archivo, --verboso, etc.) se sigue{C.fin}")
+    print(f"  {C.gris}usando  {py} main.py  desde una terminal, como siempre.{C.fin}\n")
     print(f"  {C.gris}Todo el detalle está en README.md{C.fin}")
 
 
@@ -317,9 +379,10 @@ def main() -> int:
     instalar_paquetes()
     bajar_voces()
     falta_clave = preparar_env()
+    pin_generado = asegurar_pin_fijo()
     crear_lanzadores()
     verificar()
-    resumen(falta_clave)
+    resumen(falta_clave, pin_generado)
     esperar_enter()
     return 0
 

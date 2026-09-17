@@ -19,6 +19,9 @@ PyYAML>=6.0
 # Guarda config.yaml sin perder los comentarios que lo explican
 ruamel.yaml>=0.18
 rich>=13.0
+# Ventana nativa (ventana.py): quien esta de turno no deberia necesitar una
+# terminal. En Windows usa EdgeChromium (WebView2, ya viene con Windows 10/11).
+pywebview>=5.0
 
 # --- solo para probar con cultos ya streameados (tools/bajar_culto.py) ---
 yt-dlp>=2025.1.1

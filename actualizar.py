@@ -22,7 +22,8 @@ RAIZ = Path(__file__).resolve().parent
 ZIP = "https://github.com/evolvetech-consulting/church-live-translator/archive/refs/heads/main.zip"
 
 # Lo que se actualiza: codigo del programa.
-CODIGO = ("main.py", "instalar.py", "actualizar.py", "requirements.txt", "README.md")
+CODIGO = ("main.py", "ventana.py", "instalar.py", "actualizar.py",
+          "requirements.txt", "README.md")
 CARPETAS = ("traductor", "tools")
 
 # Lo que NUNCA se pisa: es la configuracion de esta iglesia y su historial.

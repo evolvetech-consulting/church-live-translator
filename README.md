@@ -100,9 +100,9 @@ daño, no reemplaza tener bien el nivel.
    - **`instalar.command`** en macOS
 
 El instalador crea el entorno, baja las librerías y las voces, prepara el
-archivo de la clave y deja un acceso directo en el Escritorio. Tarda unos
-minutos la primera vez. Es seguro volver a ejecutarlo: detecta lo que ya está
-hecho y saltea.
+archivo de la clave (con un PIN generado para el panel, ver [más abajo](#el-pin-de-control))
+y deja un acceso directo en el Escritorio. Tarda unos minutos la primera vez.
+Es seguro volver a ejecutarlo: detecta lo que ya está hecho y saltea.
 
 > **Windows:** si no tenés Python, el instalador te lo dice y te pasa el enlace.
 > Al instalarlo, tildá **"Add python.exe to PATH"** en la primera pantalla.
@@ -111,8 +111,15 @@ hecho y saltea.
 > las rutas a 260 caracteres y algunas librerías tienen límites más bajos
 > todavía. El instalador avisa si la ruta es larga.
 
-Después: **`iniciar.bat`** (o el acceso directo del Escritorio) arranca todo y
-abre el panel en el navegador.
+Después: **`iniciar.bat`** (o el acceso directo del Escritorio) abre una
+**ventana de aplicación**, sin terminal ni navegador — pensada para que quien
+esté de turno en sonido no tenga que saber nada de computadoras. Se cierra
+como cualquier programa, con la X de la ventana.
+
+> Para depurar, hacer un ensayo con `--archivo`, o cualquier otro uso técnico,
+> seguís teniendo `python main.py` desde una terminal — el panel de siempre,
+> con el detalle de tiempos en la consola. `ventana.py` es el camino para el
+> uso de todos los días; `main.py` no cambió en nada.
 
 ### Actualizar
 
@@ -320,10 +327,11 @@ solo lectura, no piden nada. Pero **pausar, cambiar la salida de un idioma,
 guardar o borrar la transcripción** sí cambian algo en vivo, y sin protección
 cualquiera en esa red podría hacerlo con un solo pedido, sin login.
 
-Por eso esas acciones piden un PIN. Al arrancar, la terminal muestra uno:
+Por eso esas acciones piden un PIN. El instalador ya generó uno y lo dejó en
+`.env`; lo muestra una sola vez, al terminar de instalar:
 
 ```
-  PIN para cambiar algo   764479  (lo pide el panel una vez por dispositivo)
+  PIN del panel: 889710  (guardalo en .env, se generó ahora)
 ```
 
 La primera vez que tocás algo que cambia una configuración, el panel te lo
@@ -331,14 +339,22 @@ pide; lo escribís una vez por dispositivo (celular, laptop) y lo recuerda
 solo. Mirar la transcripción, los subtítulos o el nivel de entrada nunca lo
 pide.
 
-Por defecto es al azar y cambia en cada reinicio. Para fijarlo (no tener que
-mirar la terminal cada vez) o desactivarlo del todo (una red que ya se
-considera de confianza), poné en `.env`:
+Para cambiarlo o desactivarlo del todo (una red que ya se considera de
+confianza), editá `.env`:
 
 ```
-PANEL_PIN=482913     # un PIN fijo
+PANEL_PIN=482913     # un PIN fijo, el que quieras
 PANEL_PIN=ninguno    # sin PIN
 ```
+
+> **La ventana de la aplicación (`ventana.py`) necesita un PIN fijo**, porque
+> ahí no hay ninguna terminal donde mostrar uno al azar. Si falta, avisa con
+> una pantalla clara en vez de abrir algo roto — el instalador ya lo deja
+> puesto, así que esto solo importa si armaste el `.env` a mano.
+>
+> Corriendo `python main.py` desde una terminal (sin `ventana.py`), si no hay
+> `PANEL_PIN` en `.env` se genera uno al azar en cada arranque y se muestra
+> ahí mismo, en la consola.
 
 ### Vista congregación
 
@@ -569,7 +585,8 @@ esperando portugués).
 |---|---|
 | `instalar.bat` / `.command` | Instalador de doble clic (la lógica está en `instalar.py`) |
 | `actualizar.bat` / `.py` | Traer la última versión sin git |
-| `main.py` | Arranque y panel del operador |
+| `main.py` | Arranque técnico, con panel en la terminal (depurar, ensayos) |
+| `ventana.py` | Arranque de todos los días: ventana nativa, sin terminal |
 | `config.yaml` | Toda la configuración |
 | `config.mac.yaml` | Configuración para probar en una laptop |
 | `config.prueba.yaml` | Prueba en la PC de la iglesia, sin tocar el sonido de la sala |
