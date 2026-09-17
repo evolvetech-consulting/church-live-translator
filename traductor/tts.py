@@ -6,7 +6,6 @@ Corre entero en esta maquina: sin costo por culto y sin depender de internet.
 from __future__ import annotations
 
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 
@@ -46,21 +45,22 @@ def datos_espeak() -> Path:
 
 
 def descargar_voz(voz: str, carpeta: Path = CARPETA_VOCES) -> None:
-    """Baja una voz de Piper. Son ~60-120 MB cada una."""
-    import subprocess
+    """Baja una voz de Piper. Son ~60-120 MB cada una.
+
+    Se llama a la funcion de piper directamente (no por subproceso): lanzar
+    `sys.executable -m piper.download_voices` asume que sys.executable es un
+    interprete de Python que entiende "-m". Empaquetado con PyInstaller,
+    sys.executable es el propio .exe de la aplicacion, que no sabe que hacer
+    con esos argumentos y, en el peor caso, termina relanzando la aplicacion
+    entera en bucle en vez de bajar el archivo.
+    """
+    from piper.download_voices import download_voice
 
     carpeta.mkdir(parents=True, exist_ok=True)
-    # Capturamos la salida: si el nombre esta mal, piper vuelca un traceback
-    # entero, y lo que necesita ver quien esta configurando es una linea.
-    r = subprocess.run(
-        [sys.executable, "-m", "piper.download_voices", voz, "--data-dir", str(carpeta)],
-        capture_output=True, text=True,
-    )
-    if r.returncode != 0:
-        detalle = (r.stderr or "").strip().splitlines()
-        motivo = detalle[-1] if detalle else "error desconocido"
-        motivo = motivo.split(": ", 1)[-1] if ": " in motivo else motivo
-        raise RuntimeError(f"No pude bajar la voz {voz!r}: {motivo}")
+    try:
+        download_voice(voz, carpeta)
+    except Exception as e:
+        raise RuntimeError(f"No pude bajar la voz {voz!r}: {e}") from e
 
 
 def ruta_voz(voz: str, carpeta: Path = CARPETA_VOCES, bajar: bool = False) -> Path:
