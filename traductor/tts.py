@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 import logging
@@ -73,15 +74,29 @@ def descargar_voz(voz: str, carpeta: Path = CARPETA_VOCES) -> None:
     sys.executable es el propio .exe de la aplicacion, que no sabe que hacer
     con esos argumentos y, en el peor caso, termina relanzando la aplicacion
     entera en bucle en vez de bajar el archivo.
+
+    Reintenta unas pocas veces: un hipo de red justo al arrancar (la maquina
+    recien prendida, el WiFi que todavia no termino de asociarse) no tendria
+    que tirar abajo el arranque entero de la aplicacion por una sola voz.
     """
     from piper.download_voices import download_voice
 
     _usar_certificados_de_certifi()
     carpeta.mkdir(parents=True, exist_ok=True)
-    try:
-        download_voice(voz, carpeta)
-    except Exception as e:
-        raise RuntimeError(f"No pude bajar la voz {voz!r}: {e}") from e
+
+    intentos = 3
+    for intento in range(1, intentos + 1):
+        try:
+            download_voice(voz, carpeta)
+            return
+        except Exception as e:
+            if intento == intentos:
+                raise RuntimeError(f"No pude bajar la voz {voz!r}: {e}") from e
+            log.warning(
+                "No pude bajar la voz %r (intento %d/%d): %s. Reintento...",
+                voz, intento, intentos, e or type(e).__name__,
+            )
+            time.sleep(2 * intento)
 
 
 def ruta_voz(voz: str, carpeta: Path = CARPETA_VOCES, bajar: bool = False) -> Path:
