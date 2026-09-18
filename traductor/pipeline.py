@@ -135,14 +135,32 @@ class Pipeline:
         self.descartado_s: dict[str, float] = {i: 0.0 for i in self.idiomas}
         self._registro = None
 
+    @staticmethod
+    def _canal_valido(indice: int | None, canal: int, entrada: bool) -> bool:
+        """El canal 0 siempre existe si el dispositivo tiene al menos una
+        entrada/salida; uno mayor depende de cuantos canales tenga de verdad
+        (un mixer de 8 canales vs. el micrófono de 1-2 canales de una laptop
+        cualquiera, por ejemplo)."""
+        import sounddevice as sd
+
+        if canal <= 0:
+            return True
+        try:
+            info = sd.query_devices(indice, "input" if entrada else "output")
+        except Exception:
+            return True  # no se pudo confirmar; no bloqueamos el arranque por esto
+        clave = "max_input_channels" if entrada else "max_output_channels"
+        return canal < info[clave]
+
     def _verificar_dispositivos(self) -> None:
         import sounddevice as sd
 
         # No estricto: un config.yaml pensado para el mixer de OTRA iglesia
-        # (u otro nombre de placa) no tiene por que impedir que la aplicacion
-        # abra. Se cae al dispositivo por defecto de esta PC y se avisa en el
+        # (otro nombre de placa, u otra cantidad de canales) no tiene por que
+        # impedir que la aplicacion abra. Se cae al dispositivo por defecto de
+        # esta PC (y al canal 0, el unico que existe seguro) y se avisa en el
         # panel (ver servidor.py/_estado) -- desde ahi ya se puede elegir el
-        # dispositivo real sin tocar ningun archivo.
+        # dispositivo y canal reales sin tocar ningun archivo.
         avisos = []
         if not self.archivo:
             nombre = self.cfg.entrada.dispositivo
@@ -153,6 +171,13 @@ class Pipeline:
                     f"por defecto. Elegí la correcta en Entrada."
                 )
                 self.cfg.entrada.dispositivo = None
+            if not self._canal_valido(idx, self.cfg.entrada.canal, entrada=True):
+                avisos.append(
+                    f"El canal {self.cfg.entrada.canal} de entrada no existe "
+                    f"en este dispositivo: uso el canal 0. Elegí el correcto "
+                    f"en Entrada."
+                )
+                self.cfg.entrada.canal = 0
         for s in self.cfg.salidas:
             idx = buscar_dispositivo(s.dispositivo, entrada=False, estricto=False)
             if idx is None and s.dispositivo:
@@ -162,6 +187,13 @@ class Pipeline:
                     f"Canales de salida."
                 )
                 s.dispositivo = None
+            if not self._canal_valido(idx, s.canal, entrada=False):
+                avisos.append(
+                    f"El canal {s.canal} de {s.nombre} no existe en este "
+                    f"dispositivo: uso el canal 0. Elegí el correcto en "
+                    f"Canales de salida."
+                )
+                s.canal = 0
         self.aviso_dispositivo = " ".join(avisos)
 
         # La PC de la iglesia suele hacer tambien otra cosa: pasar los himnos,
