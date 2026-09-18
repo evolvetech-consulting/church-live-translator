@@ -193,7 +193,13 @@ class FuenteArchivo:
         cmd += ["-i", origen, "-vn", "-ac", "1", "-ar", str(FREC_INTERNA),
                 "-f", "s16le", "-"]
         self._proc = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            # Sin esto, Windows le abre a ffmpeg su propia consola: la
+            # aplicacion (ventana.py, --windowed) no tiene una propia a la
+            # cual pegarse, asi que crea una nueva y visible, que queda
+            # ahi en pantalla mientras dura el video. getattr() porque el
+            # flag no existe fuera de Windows.
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         self._corriendo = True
         self._hilo = threading.Thread(target=self._leer, daemon=True)
