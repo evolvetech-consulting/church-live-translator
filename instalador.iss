@@ -84,12 +84,13 @@ Filename: "winget.exe"; \
     StatusMsg: "Instalando ffmpeg (para poder ensayar con un video)..."; \
     Check: not HayFfmpeg; Flags: runasoriginaluser runhidden
 
-; CUDA: solo si esta PC tiene una placa NVIDIA. Sin esto Whisper igual
-; funciona, corre en CPU (mas lento, pero anda bien).
+; CUDA: solo si esta PC tiene una placa NVIDIA Y todavia no las bajo (correr
+; el instalador de nuevo sobre una instalacion existente no tiene por que
+; volver a bajar 1.3GB que ya estan).
 Filename: "powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\instalar_cuda.ps1"" -Destino ""{app}\_internal"""; \
     StatusMsg: "Instalando librerías de GPU (placa NVIDIA detectada, tarda varios minutos)..."; \
-    Check: HayNvidia; Flags: runhidden
+    Check: NecesitaCuda; Flags: runhidden
 
 Filename: "notepad.exe"; Parameters: """{app}\.env"""; Description: "Abrir .env para cargar la clave de traducción"; Flags: postinstall unchecked shellexec
 
@@ -124,6 +125,20 @@ begin
     if LoadStringFromFile(ArchivoTmp, Salida) then
       Result := Pos('NVIDIA', Uppercase(Salida)) > 0;
   end;
+end;
+
+function NecesitaCuda(): Boolean;
+var
+  Base: String;
+begin
+  // Si ya estan las subcarpetas que dejan los wheels (cublas/, cudnn/), no
+  // hay nada que bajar de nuevo -- correr el instalador otra vez (una
+  // actualizacion, por ejemplo) no tiene por que repetir una descarga de
+  // 1.3GB. No alcanza con que exista la carpeta "nvidia": instalar_cuda.ps1
+  // la crea siempre antes de bajar nada, asi que por si sola no confirma
+  // que la descarga anterior haya llegado a buen puerto.
+  Base := ExpandConstant('{app}\_internal\nvidia');
+  Result := HayNvidia() and not (DirExists(Base + '\cublas') or DirExists(Base + '\cudnn'));
 end;
 
 function TienePinActivo(RutaEnv: String): Boolean;
