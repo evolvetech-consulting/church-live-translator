@@ -67,6 +67,11 @@ traduccion:
 # libre, o el programa te va a avisar que choca con el que esta sonando.
 # -------------------------------------------------------------
 salidas:
+  # Arranca solo con ingles activo. Bajar/cargar las cuatro voces de una,
+  # activas o no, hace que un solo hipo de red en una que nadie va a usar hoy
+  # tire abajo el arranque entero de la aplicacion. Los demas se prenden desde
+  # el panel (Canales de salida) el dia que hagan falta -- ahi se elige
+  # tambien a que canal del mixer va cada uno.
   - idioma: "en"
     nombre: "Ingles"
     dispositivo: "X-USB"
@@ -82,6 +87,7 @@ salidas:
     voz: "pt_BR-faber-medium"
     velocidad: 1.0
     ganancia: 0.8
+    activo: false
 
   - idioma: "fr"
     nombre: "Frances"
@@ -90,6 +96,7 @@ salidas:
     voz: "fr_FR-siwis-medium"
     velocidad: 1.0
     ganancia: 0.8
+    activo: false
 
   - idioma: "uk"
     nombre: "Ucraniano"
@@ -101,6 +108,7 @@ salidas:
     voz: "uk_UA-ukrainian_tts-medium"
     velocidad: 1.0
     ganancia: 0.8
+    activo: false
 
 latencia:
   umbral_aceleracion_s: 4.0

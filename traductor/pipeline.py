@@ -84,15 +84,22 @@ class Pipeline:
         )
 
         log.info("Cargando voces...")
-        # bajar_si_falta=True tambien aca: si config.yaml pide una voz que
-        # todavia no esta en voces/ (por ejemplo, se agrego un idioma nuevo
-        # a mano y no se lo probo antes desde el panel), se baja sola en vez
-        # de romper el arranque con un FileNotFoundError.
+        # Solo las de los idiomas ACTIVOS: las de un idioma apagado se cargan
+        # (y se bajan si hace falta) recien cuando se lo prende desde el panel
+        # (ver activar_idioma). Bajar las cuatro de una siempre, activo o no,
+        # significa que un solo hipo de red en una voz que nadie va a usar hoy
+        # tira abajo el arranque entero de la aplicacion -- encontrado
+        # probando la instalacion de cero en una VM recien reseteada.
+        #
+        # bajar_si_falta=True: si config.yaml pide una voz que todavia no esta
+        # en voces/ (por ejemplo, se agrego un idioma nuevo a mano y no se lo
+        # probo antes desde el panel), se baja sola en vez de romper el
+        # arranque con un FileNotFoundError.
         self.motores = {
             s.idioma: MotorTTS(
                 s.voz, s.velocidad, expresividad=s.expresividad, bajar_si_falta=True
             )
-            for s in cfg.salidas
+            for s in cfg.salidas if s.activo
         }
         self.ruteador = Ruteador(cfg.salidas)
         # Se guarda para poder volver al microfono despues de reproducir un
@@ -528,9 +535,14 @@ class Pipeline:
         """Cambia la voz de un idioma. La baja si hace falta (tarda un poco)."""
         from .tts import MotorTTS
 
-        if idioma not in self.motores:
-            raise KeyError(f"No hay salida configurada para {idioma!r}")
-        salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+        # Se busca en cfg.salidas, no en self.motores: un idioma que arranco
+        # apagado (ver __init__) todavia no tiene motor cargado, pero sigue
+        # siendo un idioma configurado al que se le puede elegir voz antes de
+        # prenderlo.
+        try:
+            salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+        except StopIteration:
+            raise KeyError(f"No hay una salida configurada para {idioma!r}") from None
         # Se arma el motor nuevo antes de soltar el viejo: si la voz no existe
         # o falla la descarga, el canal sigue funcionando con la de antes.
         motor = MotorTTS(voz, salida.velocidad, bajar_si_falta=True,
@@ -588,6 +600,18 @@ class Pipeline:
                     f"{choque.nombre}, que esta activo. Cambiale el canal en "
                     f"'ajustes' antes de prenderlo."
                 )
+            # La voz de un idioma que arranco apagado no se cargo (ni se bajo,
+            # si hacia falta) en el arranque -- ver el comentario en __init__.
+            # Se hace aca, y si falla (por ejemplo un hipo de red bajando la
+            # voz), el idioma queda como estaba: apagado, con un error para el
+            # panel, en vez de con el arranque entero roto.
+            if idioma not in self.motores:
+                from .tts import MotorTTS
+
+                self.motores[idioma] = MotorTTS(
+                    salida.voz, salida.velocidad, expresividad=salida.expresividad,
+                    bajar_si_falta=True,
+                )
 
         activos = {i for i in self.idiomas_activos if i != idioma}
         if activo:
@@ -629,10 +653,23 @@ class Pipeline:
         return valor
 
     def probar_canal(self, idioma: str) -> float:
-        """Manda una frase de prueba al canal. Devuelve su duracion."""
+        """Manda una frase de prueba al canal. Devuelve su duracion.
+
+        Sirve tambien para escuchar un idioma ANTES de prenderlo (ver
+        activar_idioma): por eso la voz se carga aca si todavia no esta,
+        en vez de exigir que el idioma ya este activo.
+        """
+        try:
+            salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+        except StopIteration:
+            raise KeyError(f"No hay una salida configurada para {idioma!r}") from None
         if idioma not in self.motores:
-            raise KeyError(f"No hay salida configurada para {idioma!r}")
-        salida = next(s for s in self.cfg.salidas if s.idioma == idioma)
+            from .tts import MotorTTS
+
+            self.motores[idioma] = MotorTTS(
+                salida.voz, salida.velocidad, expresividad=salida.expresividad,
+                bajar_si_falta=True,
+            )
         choque = self._colision_canal(salida)
         if choque is not None:
             raise ValueError(
