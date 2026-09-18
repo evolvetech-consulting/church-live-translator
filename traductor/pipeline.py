@@ -138,10 +138,31 @@ class Pipeline:
     def _verificar_dispositivos(self) -> None:
         import sounddevice as sd
 
+        # No estricto: un config.yaml pensado para el mixer de OTRA iglesia
+        # (u otro nombre de placa) no tiene por que impedir que la aplicacion
+        # abra. Se cae al dispositivo por defecto de esta PC y se avisa en el
+        # panel (ver servidor.py/_estado) -- desde ahi ya se puede elegir el
+        # dispositivo real sin tocar ningun archivo.
+        avisos = []
         if not self.archivo:
-            buscar_dispositivo(self.cfg.entrada.dispositivo, entrada=True)
+            nombre = self.cfg.entrada.dispositivo
+            idx = buscar_dispositivo(nombre, entrada=True, estricto=False)
+            if idx is None and nombre:
+                avisos.append(
+                    f"No encontré la entrada {nombre!r}: uso la de esta PC "
+                    f"por defecto. Elegí la correcta en Entrada."
+                )
+                self.cfg.entrada.dispositivo = None
         for s in self.cfg.salidas:
-            buscar_dispositivo(s.dispositivo, entrada=False)
+            idx = buscar_dispositivo(s.dispositivo, entrada=False, estricto=False)
+            if idx is None and s.dispositivo:
+                avisos.append(
+                    f"No encontré la salida de {s.nombre} ({s.dispositivo!r}): "
+                    f"uso la de esta PC por defecto. Elegí la correcta en "
+                    f"Canales de salida."
+                )
+                s.dispositivo = None
+        self.aviso_dispositivo = " ".join(avisos)
 
         # La PC de la iglesia suele hacer tambien otra cosa: pasar los himnos,
         # videos, la letra en pantalla. Todo eso sale por el dispositivo por
@@ -154,7 +175,7 @@ class Pipeline:
         except Exception:
             return
         for s in self.cfg.salidas:
-            indice = buscar_dispositivo(s.dispositivo, entrada=False)
+            indice = buscar_dispositivo(s.dispositivo, entrada=False, estricto=False)
             # indice None significa literalmente "la salida por defecto", que
             # es el caso peligroso, no uno distinto.
             if indice is not None and indice != defecto:
@@ -336,11 +357,15 @@ class Pipeline:
     def cambiar_entrada(self, dispositivo: str | None, canal: int = 0) -> None:
         self.captura.cambiar_dispositivo(dispositivo, canal)
         self._entrada_previa = dispositivo
+        # Se eligio a mano desde el panel: el aviso de "no encontre tu placa"
+        # del arranque ya no aplica (sea esto o no lo que faltaba resolver).
+        self.aviso_dispositivo = ""
         log.info("Entrada cambiada a %s (canal %d)", dispositivo or "por defecto", canal)
 
     def cambiar_salida(self, idioma: str, dispositivo: str | None, canal: int,
                        ganancia: float | None = None) -> None:
         self.ruteador.reconfigurar(idioma, dispositivo, canal, ganancia)
+        self.aviso_dispositivo = ""
         log.info("Salida de %s a %s (canal %d)", idioma,
                  dispositivo or "por defecto", canal)
 

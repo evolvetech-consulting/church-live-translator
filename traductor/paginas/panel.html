@@ -488,8 +488,15 @@ function pintarEstado(e){
   // Un fallo que se repite en cada frase se ve igual que "no entra audio"
   // si no se dice en ningun lado.
   const f2 = $('fallo');
-  f2.style.display = e.fallo ? '' : 'none';
-  if(e.fallo) f2.textContent = 'Hay un problema procesando el audio — ' + e.fallo;
+  if(e.aviso_dispositivo){
+    f2.style.display = '';
+    f2.textContent = e.aviso_dispositivo;
+  }else if(e.fallo){
+    f2.style.display = '';
+    f2.textContent = 'Hay un problema procesando el audio — ' + e.fallo;
+  }else{
+    f2.style.display = 'none';
+  }
 
   document.body.classList.toggle('pausado', !!e.pausado);
   const b = $('btn-pausa');

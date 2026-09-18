@@ -47,8 +47,16 @@ class Frase:
         return len(self.audio) / FREC_INTERNA
 
 
-def buscar_dispositivo(nombre: str | None, entrada: bool) -> int | None:
-    """Resuelve un nombre parcial de dispositivo a su indice de PortAudio."""
+def buscar_dispositivo(nombre: str | None, entrada: bool, estricto: bool = True) -> int | None:
+    """Resuelve un nombre parcial de dispositivo a su indice de PortAudio.
+
+    estricto=False cambia que hacer cuando no hay match: en vez de tirar el
+    error, devuelve None (el dispositivo por defecto del sistema) y deja
+    quien llama decidir que avisar. Se usa al arrancar: un config.yaml con
+    el nombre de OTRA iglesia (u otro mixer) no tiene por que impedir que la
+    aplicacion abra -- el panel ya deja elegir el dispositivo real de esta
+    maquina, pero para eso primero hay que poder abrir el panel.
+    """
     if not nombre:
         return None
 
@@ -63,6 +71,14 @@ def buscar_dispositivo(nombre: str | None, entrada: bool) -> int | None:
         disponibles = [
             d["name"] for d in sd.query_devices() if d[clave] > 0
         ]
+        if not estricto:
+            log.warning(
+                "No encuentro un dispositivo de %s que contenga %r. "
+                "Sigo con el que tenga esta PC por defecto -- elegí el "
+                "correcto desde el panel. Disponibles: %s",
+                tipo, nombre, disponibles,
+            )
+            return None
         raise RuntimeError(
             f"No encuentro un dispositivo de {tipo} que contenga {nombre!r}.\n"
             f"Disponibles: {disponibles}\n"
