@@ -16,7 +16,6 @@ import logging
 import re
 import shutil
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
@@ -67,21 +66,32 @@ def resolver_stream(url: str) -> str:
 
     Asi el ensayo arranca en segundos en vez de esperar la descarga de un
     culto de una hora.
+
+    Se llama a la libreria de yt-dlp directamente (no por subproceso): lanzar
+    `sys.executable -m yt_dlp` asume que sys.executable es un interprete de
+    Python. Empaquetado con PyInstaller, sys.executable es el propio .exe de
+    la aplicacion, que no sabe que hacer con esos argumentos (mismo problema
+    que tenia la descarga de voces en traductor/tts.py).
     """
+    import yt_dlp
+
     log.info("Resolviendo el audio del enlace...")
-    r = subprocess.run(
-        [sys.executable, "-m", "yt_dlp", "-f", "bestaudio", "--no-playlist", "-g", url],
-        capture_output=True, text=True,
-    )
-    if r.returncode != 0:
-        detalle = (r.stderr or "").strip().splitlines()
-        raise RuntimeError(
-            "No pude leer el enlace: " + (detalle[-1] if detalle else "error desconocido")
-        )
-    directa = r.stdout.strip().splitlines()
+    opciones = {
+        "format": "bestaudio",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(opciones) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception as e:
+        raise RuntimeError(f"No pude leer el enlace: {e}") from e
+
+    directa = info.get("url") if info else None
     if not directa:
         raise RuntimeError("El enlace no devolvió ninguna pista de audio.")
-    return directa[-1]
+    return directa
 
 
 class FuenteArchivo:
