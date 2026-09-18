@@ -154,6 +154,50 @@ def verificar_dependencias_sistema() -> None:
         bien("ffmpeg")
 
 
+def hay_gpu_nvidia() -> bool:
+    """Detecta una placa NVIDIA sin asumir que el driver ya esta instalado:
+    alcanza con que Windows la liste como dispositivo de video."""
+    if not ES_WINDOWS:
+        return False
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "(Get-CimInstance Win32_VideoController).Name"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return "nvidia" in r.stdout.lower()
+    except Exception:
+        return False
+
+
+def instalar_paquetes_gpu() -> None:
+    paso("Revisando si hay placa NVIDIA")
+    if not hay_gpu_nvidia():
+        bien("no hay placa NVIDIA, Whisper corre en CPU (anda bien igual)")
+        return
+    bien("placa NVIDIA detectada")
+
+    # cuBLAS y cuDNN no van en requirements.txt: son ~1GB y solo sirven en la
+    # minoria de instalaciones con placa NVIDIA. Tener el driver de video no
+    # alcanza -- CTranslate2 necesita estas dos librerias ademas, si no,
+    # "auto" cae solo a CPU sin avisar (traductor/stt.py ya lo hace bien,
+    # pero mejor dejarlo instalado desde el arranque que confiar en el
+    # fallback).
+    print("    instalando las librerías de CUDA (cuBLAS, cuDNN, ~1GB)...")
+    r = subprocess.run(
+        [str(py_venv()), "-m", "pip", "install",
+         "nvidia-cublas-cu12", "nvidia-cudnn-cu12"],
+    )
+    if r.returncode != 0:
+        aviso(
+            "no pude instalar las librerías de CUDA. Whisper va a correr en "
+            "CPU (anda bien igual). Podés reintentar corriendo el instalador "
+            "de nuevo."
+        )
+        return
+    bien("listo — se confirma si quedó en GPU mirando el panel al arrancar")
+
+
 def crear_venv() -> None:
     paso("Preparando el entorno de Python")
     if py_venv().exists():
@@ -438,6 +482,7 @@ def main() -> int:
     verificar_dependencias_sistema()
     crear_venv()
     instalar_paquetes()
+    instalar_paquetes_gpu()
     bajar_voces()
     falta_clave = preparar_env()
     pin_generado = asegurar_pin_fijo()

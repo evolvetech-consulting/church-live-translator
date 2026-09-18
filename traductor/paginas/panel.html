@@ -284,6 +284,7 @@
             <div><b id="s-trad">—</b><span>traducir</span></div>
             <div><b id="s-tts">—</b><span>voz</span></div>
             <div><b id="s-tot">—</b><span>total</span></div>
+            <div><b id="s-backend">—</b><span>whisper corre en</span></div>
           </div>
           <div class="stats">
             <div><b id="t-time">00:00</b><span>en marcha</span></div>
@@ -539,6 +540,9 @@ function pintarEstado(e){
   $('s-stt').textContent = ms(p.stt); $('s-trad').textContent = ms(p.trad);
   $('s-tts').textContent = ms(p.tts);
   $('s-tot').textContent = ms((p.stt||0)+(p.trad||0)+(p.tts||0));
+  $('s-backend').textContent = e.stt_backend
+    ? (e.stt_backend.startsWith('cuda') ? 'GPU (' + e.stt_backend + ')' : 'CPU (' + e.stt_backend + ')')
+    : '—';
 }
 
 /* ---------- transcripcion ---------- */

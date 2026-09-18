@@ -106,10 +106,12 @@ class ServidorWeb:
             "fuente": {"archivo": False, "nombre": "", "terminado": False},
             "canales": {},
             "promedios": {},
+            "stt_backend": "",
         }
         if p is None:
             return estado
 
+        estado["stt_backend"] = f"{p.transcriptor.dispositivo}/{p.transcriptor.computo}"
         estado["entrada"] = round(p.captura.pico, 4)
         estado["entrada_cruda"] = round(p.captura.pico_crudo, 4)
         estado["ganancia_entrada"] = round(self.cfg.entrada.ganancia, 2)
