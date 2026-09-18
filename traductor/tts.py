@@ -44,6 +44,26 @@ def datos_espeak() -> Path:
     return destino
 
 
+def _usar_certificados_de_certifi() -> None:
+    """Hace que urlopen confie en el CA bundle de certifi, no en el del SO.
+
+    piper.download_voices baja los modelos con urllib puro, sin pasar un
+    contexto SSL propio. En Windows eso depende del almacen de certificados
+    raiz de Windows, que en una maquina que no se actualiza seguido puede no
+    tener la CA de turno todavia (Windows los va sumando bajo demanda via
+    Windows Update). El sintoma es CERTIFICATE_VERIFY_FAILED: unable to get
+    local issuer certificate, aun con internet andando bien. certifi trae su
+    propio bundle empaquetado, asi que no depende del estado del SO.
+    """
+    import ssl
+
+    import certifi
+
+    ssl._create_default_https_context = lambda: ssl.create_default_context(
+        cafile=certifi.where()
+    )
+
+
 def descargar_voz(voz: str, carpeta: Path = CARPETA_VOCES) -> None:
     """Baja una voz de Piper. Son ~60-120 MB cada una.
 
@@ -56,6 +76,7 @@ def descargar_voz(voz: str, carpeta: Path = CARPETA_VOCES) -> None:
     """
     from piper.download_voices import download_voice
 
+    _usar_certificados_de_certifi()
     carpeta.mkdir(parents=True, exist_ok=True)
     try:
         download_voice(voz, carpeta)
