@@ -112,7 +112,6 @@ class ServidorWeb:
             return estado
 
         estado["stt_backend"] = f"{p.transcriptor.dispositivo}/{p.transcriptor.computo}"
-        estado["aviso_dispositivo"] = p.aviso_dispositivo
         estado["entrada"] = round(p.captura.pico, 4)
         estado["entrada_cruda"] = round(p.captura.pico_crudo, 4)
         estado["ganancia_entrada"] = round(self.cfg.entrada.ganancia, 2)

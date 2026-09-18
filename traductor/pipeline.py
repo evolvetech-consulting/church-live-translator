@@ -164,44 +164,24 @@ class Pipeline:
 
         # No estricto: un config.yaml pensado para el mixer de OTRA iglesia
         # (otro nombre de placa, u otra cantidad de canales) no tiene por que
-        # impedir que la aplicacion abra. Se cae al dispositivo por defecto de
-        # esta PC (y al canal 0, el unico que existe seguro) y se avisa en el
-        # panel (ver servidor.py/_estado) -- desde ahi ya se puede elegir el
-        # dispositivo y canal reales sin tocar ningun archivo.
-        avisos = []
+        # impedir que la aplicacion abra. Se cae en silencio al dispositivo
+        # por defecto de esta PC (y al canal 0, el unico que existe seguro) y
+        # queda solo en el log -- los selectores de Entrada y Canales de
+        # salida ya muestran lo que esta PC tiene conectado de verdad, asi
+        # que no hace falta un cartel para decir lo mismo.
         if not self.archivo:
             nombre = self.cfg.entrada.dispositivo
             idx = buscar_dispositivo(nombre, entrada=True, estricto=False)
             if idx is None and nombre:
-                avisos.append(
-                    f"No encontré la entrada {nombre!r}: uso la de esta PC "
-                    f"por defecto. Elegí la correcta en Entrada."
-                )
                 self.cfg.entrada.dispositivo = None
             if not self._canal_valido(idx, self.cfg.entrada.canal, entrada=True):
-                avisos.append(
-                    f"El canal {self.cfg.entrada.canal} de entrada no existe "
-                    f"en este dispositivo: uso el canal 0. Elegí el correcto "
-                    f"en Entrada."
-                )
                 self.cfg.entrada.canal = 0
         for s in self.cfg.salidas:
             idx = buscar_dispositivo(s.dispositivo, entrada=False, estricto=False)
             if idx is None and s.dispositivo:
-                avisos.append(
-                    f"No encontré la salida de {s.nombre} ({s.dispositivo!r}): "
-                    f"uso la de esta PC por defecto. Elegí la correcta en "
-                    f"Canales de salida."
-                )
                 s.dispositivo = None
             if not self._canal_valido(idx, s.canal, entrada=False):
-                avisos.append(
-                    f"El canal {s.canal} de {s.nombre} no existe en este "
-                    f"dispositivo: uso el canal 0. Elegí el correcto en "
-                    f"Canales de salida."
-                )
                 s.canal = 0
-        self.aviso_dispositivo = " ".join(avisos)
 
         # La PC de la iglesia suele hacer tambien otra cosa: pasar los himnos,
         # videos, la letra en pantalla. Todo eso sale por el dispositivo por
@@ -396,15 +376,11 @@ class Pipeline:
     def cambiar_entrada(self, dispositivo: str | None, canal: int = 0) -> None:
         self.captura.cambiar_dispositivo(dispositivo, canal)
         self._entrada_previa = dispositivo
-        # Se eligio a mano desde el panel: el aviso de "no encontre tu placa"
-        # del arranque ya no aplica (sea esto o no lo que faltaba resolver).
-        self.aviso_dispositivo = ""
         log.info("Entrada cambiada a %s (canal %d)", dispositivo or "por defecto", canal)
 
     def cambiar_salida(self, idioma: str, dispositivo: str | None, canal: int,
                        ganancia: float | None = None) -> None:
         self.ruteador.reconfigurar(idioma, dispositivo, canal, ganancia)
-        self.aviso_dispositivo = ""
         log.info("Salida de %s a %s (canal %d)", idioma,
                  dispositivo or "por defecto", canal)
 
