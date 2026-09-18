@@ -214,8 +214,8 @@
   #banda{display:none;background:#3a2a10;border-bottom:1px solid #5c441a;
     color:#e8bf70;font-size:12.5px;padding:8px 20px;text-align:center}
   body.pausado #banda{display:block}
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
-    background:var(--bd);border-radius:8px;overflow:hidden}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));
+    gap:1px;background:var(--bd);border-radius:8px;overflow:hidden}
   .stats div{background:var(--f1);padding:9px 10px;text-align:center}
   .stats b{display:block;font-size:15px;font-variant-numeric:tabular-nums;
     letter-spacing:-.3px}
@@ -284,11 +284,11 @@
             <div><b id="s-trad">—</b><span>traducir</span></div>
             <div><b id="s-tts">—</b><span>voz</span></div>
             <div><b id="s-tot">—</b><span>total</span></div>
-            <div><b id="s-backend">—</b><span>whisper corre en</span></div>
           </div>
           <div class="stats">
             <div><b id="t-time">00:00</b><span>en marcha</span></div>
             <div><b id="t-n">0</b><span>frases</span></div>
+            <div><b id="s-backend">—</b><span>whisper corre en</span></div>
           </div>
 
           <div class="field" style="margin-top:13px">
@@ -466,7 +466,12 @@ function pintarEstado(e){
                             String(Math.floor(s%60)).padStart(2,'0');
   const offline = e.modo !== 'claude';
   $('p-mode').classList.toggle('oculto', !offline);
-  if (offline) $('t-mode').textContent = 'Traduciendo offline (Whisper)';
+  if (offline){
+    $('t-mode').textContent = 'Traduciendo offline (Whisper)';
+    $('p-mode').title = e.fallo_traduccion
+      ? 'Por qué: ' + e.fallo_traduccion
+      : 'Sin proveedor de traducción configurado';
+  }
 
   const f = e.fuente || {};
   $('src-chip').classList.toggle('on', !!f.archivo);
@@ -540,9 +545,8 @@ function pintarEstado(e){
   $('s-stt').textContent = ms(p.stt); $('s-trad').textContent = ms(p.trad);
   $('s-tts').textContent = ms(p.tts);
   $('s-tot').textContent = ms((p.stt||0)+(p.trad||0)+(p.tts||0));
-  $('s-backend').textContent = e.stt_backend
-    ? (e.stt_backend.startsWith('cuda') ? 'GPU (' + e.stt_backend + ')' : 'CPU (' + e.stt_backend + ')')
-    : '—';
+  $('s-backend').textContent = e.stt_backend ? (e.stt_backend.startsWith('cuda') ? 'GPU' : 'CPU') : '—';
+  $('s-backend').parentElement.title = e.stt_backend ? 'whisper en ' + e.stt_backend : '';
 }
 
 /* ---------- transcripcion ---------- */

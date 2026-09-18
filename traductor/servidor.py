@@ -116,6 +116,7 @@ class ServidorWeb:
         estado["entrada_cruda"] = round(p.captura.pico_crudo, 4)
         estado["ganancia_entrada"] = round(self.cfg.entrada.ganancia, 2)
         estado["modo"] = "offline" if p.traductor.usando_fallback else "claude"
+        estado["fallo_traduccion"] = p.traductor.ultimo_error
         estado["frases"] = len(p.eventos)
         estado["pausado"] = p.pausado
         estado["fallo"] = p.ultimo_fallo
