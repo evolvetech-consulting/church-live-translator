@@ -25,12 +25,12 @@
 ;
 ; Deja el instalador en salida\Instalar Traductor del culto.exe
 ;
-; Por ahora arma un build solo-CPU: no bundlea nvidia-cublas-cu12 /
-; nvidia-cudnn-cu12 (~1GB), asi que Whisper no usa GPU aunque la maquina
-; tenga una NVIDIA. instalar.py (el camino sin empaquetar) si detecta la
-; placa e instala esas librerias solo cuando hace falta -- para sumar GPU
-; aca habria que decidir entre bundlearlas siempre (mas pesado para todos)
-; o armar dos builds distintos y elegir en el instalador segun la maquina.
+; El build de PyInstaller es siempre CPU (no bundlea las libererias de CUDA:
+; son ~1.3GB y la mayoria de las instalaciones no tiene placa NVIDIA). Si
+; esta PC SI tiene una, el instalador las baja aparte -- ver instalar_cuda.ps1
+; y HayNvidia() mas abajo -- directo de PyPI, y las deja donde
+; traductor/stt.py ya sabe buscarlas. Sin esto Whisper corre en CPU aunque
+; haya GPU, que sigue andando bien pero mas lento.
 
 #define MyAppName "Traductor del culto"
 #define MyAppVersion "1.0"
@@ -62,6 +62,9 @@ Source: "dist\Traductor del culto\*"; DestDir: "{app}"; Flags: recursesubdirs ig
 Source: "config.4idiomas.yaml"; DestDir: "{app}"; DestName: "config.yaml"; Flags: onlyifdoesntexist
 Source: ".env.ejemplo"; DestDir: "{app}"; DestName: ".env"; Flags: onlyifdoesntexist
 Source: "glosario.yaml"; DestDir: "{app}"; Flags: onlyifdoesntexist
+; dontcopy: no se instala en {app}, solo queda disponible para
+; ExtractTemporaryFile() durante la instalacion (ver CurStepChanged).
+Source: "instalar_cuda.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 
 [Dirs]
 Name: "{app}\voces"
@@ -72,11 +75,56 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 
 [Run]
+; ffmpeg: solo hace falta para "ensayar con un video" (traductor/fuente.py).
+; runasoriginaluser: winget resuelve mal su contexto corriendo como el
+; usuario elevado del instalador; necesita correr como quien lo esta
+; instalando de verdad.
+Filename: "winget.exe"; \
+    Parameters: "install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements"; \
+    StatusMsg: "Instalando ffmpeg (para poder ensayar con un video)..."; \
+    Check: not HayFfmpeg; Flags: runasoriginaluser runhidden
+
+; CUDA: solo si esta PC tiene una placa NVIDIA. Sin esto Whisper igual
+; funciona, corre en CPU (mas lento, pero anda bien).
+Filename: "powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\instalar_cuda.ps1"" -Destino ""{app}\_internal"""; \
+    StatusMsg: "Instalando librerías de GPU (placa NVIDIA detectada, tarda varios minutos)..."; \
+    Check: HayNvidia; Flags: runhidden
+
 Filename: "notepad.exe"; Parameters: """{app}\.env"""; Description: "Abrir .env para cargar la clave de traducción"; Flags: postinstall unchecked shellexec
 
 [Code]
 var
   PinGenerado: String;
+
+function HayFfmpeg(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec('where.exe', 'ffmpeg', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+    and (ResultCode = 0);
+end;
+
+function HayNvidia(): Boolean;
+var
+  ResultCode: Integer;
+  Salida: AnsiString;
+  ArchivoTmp: String;
+begin
+  Result := False;
+  ArchivoTmp := ExpandConstant('{tmp}\gpu.txt');
+  // Get-CimInstance en vez de wmic (deprecado / puede faltar en Windows
+  // nuevos). El nombre de la placa alcanza: no hace falta que el driver
+  // ya este instalado para detectarla.
+  if Exec('powershell.exe',
+      '-NoProfile -Command "(Get-CimInstance Win32_VideoController).Name ' +
+      '| Out-File -Encoding utf8 ''' + ArchivoTmp + '''"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if LoadStringFromFile(ArchivoTmp, Salida) then
+      Result := Pos('NVIDIA', Uppercase(Salida)) > 0;
+  end;
+end;
 
 function TienePinActivo(RutaEnv: String): Boolean;
 var
@@ -132,7 +180,12 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
+  begin
     GenerarPin();
+    // Tiene que estar disponible ANTES de que corran los [Run], que se
+    // ejecutan despues de ssPostInstall.
+    ExtractTemporaryFile('instalar_cuda.ps1');
+  end;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
