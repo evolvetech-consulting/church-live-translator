@@ -10,7 +10,12 @@
 ;     --add-data "traductor\paginas;traductor\paginas" ^
 ;     --add-data ".venv\Lib\site-packages\piper\espeak-ng-data;piper\espeak-ng-data" ^
 ;     --add-data ".venv\Lib\site-packages\faster_whisper\assets;faster_whisper\assets" ^
+;     --runtime-hook pyi_rth_numpy_dlls.py ^
 ;     --icon traductor\paginas\estaticos\icono.ico ventana.py
+;
+; El --runtime-hook es necesario: sin el, numpy puede fallar con "DLL load
+; failed" en maquinas reales (x64) aunque haya andado bien en una VM de
+; prueba -- ver pyi_rth_numpy_dlls.py para el detalle completo.
 ;
 ; Eso deja dist\Traductor del culto\ (el .exe + todo lo que necesita), que es
 ; lo que este script empaqueta. OJO: esa carpeta tiene que estar limpia --
