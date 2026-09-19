@@ -16,13 +16,23 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$paquetes = @('nvidia-cublas-cu12', 'nvidia-cudnn-cu12')
+# La carpeta que deja cada paquete adentro de nvidia/, para poder saltear el
+# que ya este (una instalacion anterior que se corto a mitad de camino, por
+# ejemplo, no tiene por que volver a bajar la que ya habia llegado bien).
+$paquetes = @{
+    'nvidia-cublas-cu12' = 'cublas'
+    'nvidia-cudnn-cu12'  = 'cudnn'
+}
 $tmp = Join-Path $env:TEMP 'traductor_cuda_setup'
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 $destinoNvidia = Join-Path $Destino 'nvidia'
 New-Item -ItemType Directory -Force -Path $destinoNvidia | Out-Null
 
-foreach ($pkg in $paquetes) {
+foreach ($pkg in $paquetes.Keys) {
+    if (Test-Path (Join-Path $destinoNvidia $paquetes[$pkg])) {
+        Write-Host "$pkg ya estaba, lo salteo."
+        continue
+    }
     try {
         Write-Host "Bajando $pkg..."
         $info = Invoke-RestMethod -Uri "https://pypi.org/pypi/$pkg/json" -UseBasicParsing

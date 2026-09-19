@@ -136,14 +136,14 @@ function NecesitaCuda(): Boolean;
 var
   Base: String;
 begin
-  // Si ya estan las subcarpetas que dejan los wheels (cublas/, cudnn/), no
-  // hay nada que bajar de nuevo -- correr el instalador otra vez (una
-  // actualizacion, por ejemplo) no tiene por que repetir una descarga de
-  // 1.3GB. No alcanza con que exista la carpeta "nvidia": instalar_cuda.ps1
-  // la crea siempre antes de bajar nada, asi que por si sola no confirma
-  // que la descarga anterior haya llegado a buen puerto.
+  // Hacen falta las DOS subcarpetas (cublas/ Y cudnn/), no alcanza con una
+  // sola: si una instalacion anterior se corto a mitad de camino (la PC se
+  // apago, se corto la conexion) y solo llego a bajar cuBLAS, correr el
+  // instalador de nuevo tiene que completar lo que falta, no darlo por
+  // terminado. Tampoco alcanza con que exista la carpeta "nvidia" sola:
+  // instalar_cuda.ps1 la crea siempre antes de bajar nada.
   Base := ExpandConstant('{app}\_internal\nvidia');
-  Result := HayNvidia() and not (DirExists(Base + '\cublas') or DirExists(Base + '\cudnn'));
+  Result := HayNvidia() and not (DirExists(Base + '\cublas') and DirExists(Base + '\cudnn'));
 end;
 
 function TienePinActivo(RutaEnv: String): Boolean;
