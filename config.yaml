@@ -185,7 +185,11 @@ latencia:
 # -------------------------------------------------------------
 web:
   activo: true
-  puerto: 8080
+  # 8080 es un puerto muy usado por otros programas -- en esta PC, con placa
+  # NVIDIA, "NVIDIA Broadcast" se queda con ese mismo puerto en 127.0.0.1, y
+  # entrar por "localhost:8080" desde esta misma PC cae en su panel en vez
+  # del nuestro. 8091 es menos comun.
+  puerto: 8091
 
 registro:
   # Guarda transcripcion + traduccion de cada culto para revisar despues

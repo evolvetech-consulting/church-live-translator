@@ -73,7 +73,11 @@ class Latencia:
 @dataclass
 class Web:
     activo: bool = True
-    puerto: int = 8080
+    # No 8080: lo usan muchos otros programas (por ejemplo "NVIDIA
+    # Broadcast" en una PC con placa NVIDIA), y entrar por
+    # "localhost:8080" desde esa misma PC puede caer en su panel en vez
+    # del nuestro.
+    puerto: int = 8091
 
 
 # Lo que se puede cambiar desde el panel y hay que poder guardar. El resto de

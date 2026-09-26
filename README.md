@@ -303,8 +303,8 @@ Voces disponibles: <https://huggingface.co/rhasspy/piper-voices>
 Al arrancar imprime dos direcciones:
 
 ```
-  Panel del operador   http://192.168.1.50:8080
-  Vista congregación   http://192.168.1.50:8080/subtitulos   (para el QR)
+  Panel del operador   http://192.168.1.50:8091
+  Vista congregación   http://192.168.1.50:8091/subtitulos   (para el QR)
 ```
 
 ### Panel del operador

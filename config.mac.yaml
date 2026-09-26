@@ -66,7 +66,9 @@ latencia:
 
 web:
   activo: true
-  puerto: 8080
+  # 8080 es un puerto muy usado por otros programas (por ejemplo, "NVIDIA
+  # Broadcast" en una PC con placa NVIDIA). 8091 es menos comun.
+  puerto: 8091
 
 registro:
   carpeta: "registros"
