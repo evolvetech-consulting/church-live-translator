@@ -85,6 +85,7 @@ class ServidorWeb:
                 "activo": s.activo,
                 "ruta": f"{s.dispositivo or 'defecto'} · "
                         f"{'izq' if s.canal == 0 else 'der' if s.canal == 1 else f'canal {s.canal}'}",
+                "nota": s.nota or "",
             }
             for s in self.cfg.salidas
         ]

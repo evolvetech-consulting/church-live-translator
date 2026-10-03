@@ -60,6 +60,14 @@ class Salida:
     # LLM ni se sintetiza audio para el: apagarlo ahorra de verdad, no es
     # cosmetico. Se puede prender y apagar en caliente desde el panel.
     activo: bool = True
+    # Texto libre para recordar a donde va esto de verdad. El nombre del
+    # dispositivo y el numero de canal (ej. "OUT 1-8 (BEHRINGER X-USB)",
+    # canal 0) no dicen nada sobre que transmisor termina sonando: eso
+    # depende del ruteo interno del mixer (que Aux/Bus uso, a que AUX OUT
+    # fisico esta patcheado), algo que la aplicacion no puede ver ni
+    # controlar. Se completa a mano una vez, despues de probarlo de
+    # verdad, y el panel lo muestra para no depender de la memoria.
+    nota: str | None = None
 
 
 @dataclass

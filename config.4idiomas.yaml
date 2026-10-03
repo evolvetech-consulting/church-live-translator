@@ -79,6 +79,11 @@ salidas:
     voz: "en_US-lessac-medium"
     velocidad: 1.0
     ganancia: 0.8
+    # Texto libre, no lo toca el panel: ver el campo `nota` en Salida
+    # (traductor/config.py) para que sirve. Completar despues de probar
+    # de verdad a donde llega -- el nombre del dispositivo/canal de
+    # Windows no dice nada sobre el ruteo interno del mixer.
+    nota: "Mixer: entra por posición 3 del Card → canal Aux3 → Bus 1 'Traducción' → AUX OUT 1 → transmisor."
 
   - idioma: "pt"
     nombre: "Portugues"

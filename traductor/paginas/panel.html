@@ -417,6 +417,7 @@ function construirCanales(){
         <div class="field">
           <label>Sale por</label>
           <div class="row2"><select class="od"></select><select class="oc"></select></div>
+          ${l.nota ? `<div class="hint hint-1l">${esc(l.nota)}</div>` : ''}
         </div>
         <button class="full test">Probar este canal</button>
       </div>
