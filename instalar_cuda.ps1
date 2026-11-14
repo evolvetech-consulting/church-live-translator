@@ -38,7 +38,16 @@ foreach ($pkg in $paquetes.Keys) {
         $info = Invoke-RestMethod -Uri "https://pypi.org/pypi/$pkg/json" -UseBasicParsing
         $archivo = $info.urls | Where-Object { $_.filename -like '*win_amd64.whl' } | Select-Object -First 1
         if (-not $archivo) {
-            Write-Host "  no encontre un wheel para win_amd64, sigo con el siguiente"
+            # La version "latest" no siempre trae wheel de Windows (paso con
+            # cublas 12.9.3.13, que solo publico para Linux): buscamos la
+            # version mas reciente que si lo tenga, en vez de rendirnos.
+            $archivo = $info.releases.PSObject.Properties.Value |
+                ForEach-Object { $_ | Where-Object { $_.filename -like '*win_amd64.whl' } } |
+                Sort-Object upload_time_iso_8601 -Descending |
+                Select-Object -First 1
+        }
+        if (-not $archivo) {
+            Write-Host "  no encontre ningun wheel para win_amd64 en ninguna version, sigo con el siguiente"
             continue
         }
         $zip = Join-Path $tmp ($pkg + '.zip')
