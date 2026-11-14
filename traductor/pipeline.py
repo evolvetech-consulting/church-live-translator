@@ -159,6 +159,26 @@ class Pipeline:
         clave = "max_input_channels" if entrada else "max_output_channels"
         return canal < info[clave]
 
+    def _buscar_con_reintento(self, nombre, entrada: bool,
+                               intentos: int = 6, espera_s: float = 0.5):
+        """Como buscar_dispositivo, pero reintenta antes de rendirse.
+
+        Justo despues de un reinicio, Windows puede tardar un par de
+        segundos en terminar de enumerar una placa USB (la BEHRINGER, por
+        ejemplo): un solo intento fallido en ese instante no deberia
+        bastar para que _verificar_dispositivos borre un nombre/canal que
+        en realidad esta bien -- eso fue lo que paso el 2026-10-24, donde
+        la config buena se perdio en memoria al arrancar y despues se
+        persistio a disco con el primer "Guardar" de la sesion.
+        """
+        idx = buscar_dispositivo(nombre, entrada=entrada, estricto=False)
+        for _ in range(intentos - 1):
+            if idx is not None or not nombre:
+                break
+            time.sleep(espera_s)
+            idx = buscar_dispositivo(nombre, entrada=entrada, estricto=False)
+        return idx
+
     def _verificar_dispositivos(self) -> None:
         import sounddevice as sd
 
@@ -171,13 +191,13 @@ class Pipeline:
         # que no hace falta un cartel para decir lo mismo.
         if not self.archivo:
             nombre = self.cfg.entrada.dispositivo
-            idx = buscar_dispositivo(nombre, entrada=True, estricto=False)
+            idx = self._buscar_con_reintento(nombre, entrada=True)
             if idx is None and nombre:
                 self.cfg.entrada.dispositivo = None
             if not self._canal_valido(idx, self.cfg.entrada.canal, entrada=True):
                 self.cfg.entrada.canal = 0
         for s in self.cfg.salidas:
-            idx = buscar_dispositivo(s.dispositivo, entrada=False, estricto=False)
+            idx = self._buscar_con_reintento(s.dispositivo, entrada=False)
             if idx is None and s.dispositivo:
                 s.dispositivo = None
             if not self._canal_valido(idx, s.canal, entrada=False):

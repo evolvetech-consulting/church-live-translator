@@ -269,7 +269,9 @@ class Traductor:
         # Cuando el proveedor falla por algo que no se arregla solo (sin
         # credito, clave vencida), reintentar en cada frase cuesta ~1s de
         # latencia por una llamada que ya sabemos que va a fallar. Esperamos
-        # cada vez mas entre intentos, hasta un minuto.
+        # cada vez mas entre intentos, hasta 20s -- un tope mayor (antes 60s)
+        # dejaba el culto pegado al offline varios minutos despues de un
+        # hipo corto de Gemini, aunque el proveedor ya hubiera vuelto.
         self._reintentar_desde = 0.0
         self.ultimo_error = ""
 
@@ -315,7 +317,7 @@ class Traductor:
             except Exception as e:
                 self.fallos_seguidos += 1
                 self.ultimo_error = str(e)
-                espera = min(5 * 2 ** (self.fallos_seguidos - 1), 60)
+                espera = min(5 * 2 ** (self.fallos_seguidos - 1), 20)
                 self._reintentar_desde = time.monotonic() + espera
                 if not self.usando_fallback:
                     log.warning(
